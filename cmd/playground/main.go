@@ -15,11 +15,17 @@ func main() {
 
 	logger.Info("Testing grizzly dataframes")
 
-	// Build typed columns: each one holds a contiguous slice of its real type.
-	products := grizzly.NewStringColumn("product", []string{"apple", "banana", "cherry"})
-	prices := grizzly.NewFloat64Column("price", []float64{1.50, 0.75, 3.20})
-
-	df, err := grizzly.NewDataframe(products, prices)
+	// Row-oriented loading: one struct = one row. Types come from the
+	// struct fields; column names from the `grizzly` tags.
+	type Sale struct {
+		Product string  `grizzly:"product"`
+		Price   float64 `grizzly:"price"`
+	}
+	df, err := grizzly.FromStructs([]Sale{
+		{Product: "apple", Price: 1.50},
+		{Product: "banana", Price: 0.75},
+		{Product: "cherry", Price: 3.20},
+	})
 	if err != nil {
 		logger.Error("building dataframe", "err", err)
 		return
