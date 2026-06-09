@@ -5,8 +5,8 @@ import (
 	"os"
 )
 
+// New returns a colorized, human-friendly logger writing to stderr,
+// showing records at or above the given level.
 func New(level slog.Level) *slog.Logger {
-	opts := &slog.HandlerOptions{Level: level}
-	inner := slog.NewTextHandler(os.Stderr, opts)
-	return slog.New(&colorHandler{inner: inner, out: os.Stderr})
+	return slog.New(&colorHandler{out: os.Stderr, level: level})
 }
