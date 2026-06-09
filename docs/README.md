@@ -1,50 +1,54 @@
-# grizzly — Design Docs
+# grizzly — living library document
 
-> **grizzly** is a DataFrame library written from scratch in Go.
-> A panda is a bear. A grizzly is a faster, meaner one. 🐻
+The single living document of the library. Design decisions, open questions and
+learning-note annexes live (or are linked) here. Updated as the project evolves.
 
-This folder is the **design notebook** for the project. Its purpose is *not* to be a
-final spec — it's a set of discussion documents, one per design decision, so we can
-argue each one on its own before writing code.
+## What grizzly is
 
-The project has two goals, in this order:
+A dataframe library written in Go from scratch, as a learning project: the goal is to
+learn Go and to understand how dataframe engines work internally — not to compete with
+existing libraries.
 
-1. **Learn Go by building a real, non-trivial system by hand.** We deliberately
-   implement the hard parts ourselves (columnar memory, typed columns, the group-by
-   engine, parallelism) instead of leaning on existing libraries.
-2. **Maybe fill a real gap.** There is no maintained, idiomatic, fast, native Go
-   DataFrame. If grizzly turns out well, the niche is open.
+## Core design decisions
 
-## How to read these docs
+### 1. Row-oriented ingestion, column-oriented storage (decided)
 
-Each numbered doc covers one design aspect we can discuss independently. They follow
-the same shape: the question, why it matters, the options with trade-offs, the current
-leaning, open questions, and references to articles that explain the topic.
+Users think and load data in **rows**; the engine stores and processes **columns**.
 
-**Status legend:**
-- 🟡 **Open** — not decided yet, up for debate
-- 🟢 **Decided** — we've agreed a direction (recorded for posterity)
-- ⚪ **Later** — out of scope for now, parked on purpose
+- Constructors accept row-shaped input: Go structs, CSV paths, JSON paths.
+- Internally, data lives in typed contiguous slices (`[]float64`, `[]string`...),
+  because dataframe operations (`Sum`, `Filter`, `GroupBy`, `Join`) are inherently
+  columnar and contiguous memory is what makes them fast.
+- Construction transposes rows → columns once, at the boundary.
 
-## Index
+Why not `map[string]any` per row: per-entry map overhead, hash lookup on every access,
+and every value boxed on the heap — see [Annex: Stack vs Heap](stack-vs-heap.md).
 
-| Doc | Topic | Status |
-|-----|-------|--------|
-| [00 — Vision & Scope](00-vision-scope.md) | What grizzly is, goals, non-goals | 🟡 |
-| [01 — Prior Art](01-prior-art.md) | Existing Go DataFrames, pandas/Polars internals | 🟡 |
-| [02 — Memory Model](02-memory-model.md) | Columnar layout, Series, build-by-hand vs Arrow | 🟡 |
-| [03 — Type System](03-type-system.md) | Generics vs interfaces for typed columns | 🟡 |
-| [04 — Null Handling](04-null-handling.md) | `[]bool` mask vs validity bitmap | 🟡 |
-| [05 — Execution Model](05-execution-model.md) | Eager vs lazy evaluation | 🟡 |
-| [06 — Engine: GroupBy & Join](06-engine-groupby-join.md) | The core algorithms | 🟡 |
-| [07 — Concurrency](07-concurrency.md) | Goroutines, parallel aggregation | 🟡 |
-| [08 — I/O](08-io.md) | CSV / Parquet reading | 🟡 |
-| [09 — Performance & Benchmarking](09-performance-benchmarking.md) | testing, pprof, SIMD | 🟡 |
-| [10 — API Design](10-api-design.md) | Idiomatic Go public API | 🟡 |
-| [Roadmap](roadmap.md) | Phased plan, each phase = a Go concept | 🟡 |
+The guiding principle: **the more the compiler knows at compile time (types, sizes,
+lifetimes), the faster the program** — typed columns are that principle applied.
 
-## Ground rule: scope discipline
+### 2. Explicit schema on load (decided)
 
-The fastest way to kill a learning project is unbounded scope. Each doc has a
-**non-goals** section. When in doubt, cut. We can always add a feature later; we can't
-finish a project that never stops growing.
+When loading untyped sources (CSV, JSON), the **user declares the column types** via an
+explicit schema — like a database, unlike pandas. Rationale: zero ambiguity, no
+guessing bugs (a `"08001"` zip code never becomes an int), and idiomatic Go
+(explicit > magic). Type inference may be added later as an optional layer on top.
+Struct-based construction needs no schema: types come from the struct fields themselves.
+
+## Open questions
+
+- **Column representation in Go** — leading candidate: a `Column` interface with typed
+  implementations (`Float64Column`, `StringColumn`...) over a closed set of types
+  (`float64`, `int64`, `string`, `bool`). Generics collapse into this anyway because a
+  dataframe is heterogeneous at runtime.
+- **Null handling** — not designed yet.
+
+## Annexes (learning notes)
+
+- [Stack vs Heap](stack-vs-heap.md) — the two memories of a program, Go's escape
+  analysis, why `any` boxes values to the heap, and cache locality. The foundation for
+  the columnar storage decision.
+- [`make` and `map` in Go](make-and-maps.md) — maps as hash tables (Python dict, not
+  JSON), zero values and the comma-ok idiom, why nil maps panic on write, and capacity
+  hints. Underpins why `Dataframe` stores columns in an ordered slice and why
+  constructors pre-size their slices.
