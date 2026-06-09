@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"grizzly"
-	"grizzly/internal/logging"
+	"github.com/gverdugo-dev/grizzly"
+	"github.com/gverdugo-dev/grizzly/internal/logging"
 )
 
 func main() {

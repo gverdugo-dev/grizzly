@@ -41,7 +41,10 @@ Struct-based construction needs no schema: types come from the struct fields the
   implementations (`Float64Column`, `StringColumn`...) over a closed set of types
   (`float64`, `int64`, `string`, `bool`). Generics collapse into this anyway because a
   dataframe is heterogeneous at runtime.
-- **Null handling** — not designed yet.
+- **Null handling** — not designed yet. The problem and the three classic strategies
+  (sentinels, pointer slices, validity bitmap) are laid out in
+  [Annex: Nulls in a typed columnar store](null-handling.md); leading candidate is a
+  validity mask, with semantics (what does `Sum` do with nulls?) still to be decided.
 
 ## Annexes (learning notes)
 
@@ -52,3 +55,12 @@ Struct-based construction needs no schema: types come from the struct fields the
   JSON), zero values and the comma-ok idiom, why nil maps panic on write, and capacity
   hints. Underpins why `Dataframe` stores columns in an ordered slice and why
   constructors pre-size their slices.
+- [Nulls in a typed columnar store](null-handling.md) — why `[]float64` has no "empty"
+  state, and the three classic answers: sentinel values (old pandas' NaN scars),
+  pointer slices (the heap disaster revisited), validity bitmaps (Arrow/Polars).
+  Groundwork for the null-handling open question.
+- [Lessons from the first benchmark](first-benchmark-lessons.md) — grizzly vs
+  pandas/polars on 1M rows: beating pandas' C parser on CSV single-threaded, why
+  polars' 0.032s needs parallel+SIMD, `FromJSON`'s map/boxing cost as the real weak
+  point, and float summation order explaining the checksum mismatch. Seeds the
+  performance roadmap in todo.md.
