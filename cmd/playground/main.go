@@ -45,4 +45,26 @@ func main() {
 	if _, err := df.Sum("product"); err != nil {
 		logger.Warn("expected failure", "err", err)
 	}
+
+	// Untyped sources need an explicit schema: the user declares the types
+	// (and the column order — note it differs from the files').
+	schema := grizzly.Schema{
+		{Name: "store", Type: grizzly.String},
+		{Name: "product", Type: grizzly.String},
+		{Name: "price", Type: grizzly.Float64},
+	}
+
+	fromCSV, err := grizzly.FromCSV("cmd/playground/testdata/sales.csv", schema)
+	if err != nil {
+		logger.Error("loading csv", "err", err)
+		return
+	}
+	fmt.Println(fromCSV)
+
+	fromJSON, err := grizzly.FromJSON("cmd/playground/testdata/sales.json", schema)
+	if err != nil {
+		logger.Error("loading json", "err", err)
+		return
+	}
+	fmt.Println(fromJSON.Info())
 }

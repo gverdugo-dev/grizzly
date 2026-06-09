@@ -1,0 +1,6 @@
+[
+  {"product": "apple", "price": 1.5, "store": "downtown"},
+  {"product": "banana", "price": 0.75, "store": "downtown"},
+  {"product": "cherry", "price": 3.2, "store": "uptown"},
+  {"product": "mango", "price": 2.1, "store": "uptown"}
+]
