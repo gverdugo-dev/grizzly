@@ -80,7 +80,14 @@ per-column predicates, expression strings) are mapped in
 
 ## Open questions
 
-- None right now — the next ones will come from GroupBy's design.
+- **GroupBy design** — algorithm (hash vs sort), key representation (typed maps +
+  the factorize/group-ids pattern; multi-column keys), API shape (eager
+  `GroupBy(...).Agg(specs...)` vs map of sub-dataframes), null keys (SQL/polars:
+  one group; pandas: dropped by default) and output order (Go maps iterate
+  randomly — first-appearance group ids fix it). The five axes with pros/cons and
+  leading candidates are mapped in
+  [Annex: GroupBy — the design space](groupby-design-space.md). Decision pending
+  discussion.
 
 ## Roadmap (versioned phases)
 
@@ -126,6 +133,11 @@ pandas/polars.
   twiddling, popcount, the `nil` = no-nulls trick), comma-ok vs `Null[T]` vs two-method
   APIs, always-nullable columns, and SQL skip-null semantics. Records all four
   decisions.
+- [GroupBy: the design space](groupby-design-space.md) — split-apply-combine and
+  the five GroupBy design axes: hash vs sort grouping, the factorize/group-ids
+  pattern and multi-column keys, eager Agg-specs API vs map-of-dataframes, null
+  keys as their own group, and deterministic output order despite Go's randomized
+  map iteration. Underpins the (open) GroupBy design decision.
 - [Filter: the design space](filter-design-space.md) — the four candidate Filter
   APIs (row predicate, typed per-column predicate, columnar masks, expression
   strings) with pros and cons, and the three-valued (Kleene) null logic that
