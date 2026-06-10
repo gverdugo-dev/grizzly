@@ -23,9 +23,12 @@ Working checklist of the project. The living design document is
 - [x] **Nulls: design decided** — real `[]uint64` bitmap (`nil` = no nulls), comma-ok
       `Value(i) (T, bool)` API, always-nullable columns, SQL skip-null semantics.
       See [docs/nulls-in-go.md](docs/nulls-in-go.md)
-- [ ] **Nulls: implement** ← current. Step by step: (1) bitmap + `Value` on columns,
-      (2) null-aware constructors, (3) loaders map empty CSV cells / JSON `null`s to
-      bit 0, (4) `Sum` skips nulls, (5) `Info` shows non-null counts
+- [x] **Nulls: implement** — bitmap + comma-ok `Value` on columns; `WithNulls`
+      constructors ([]bool mask at the boundary); JSON `null` and empty CSV
+      float cells → bit 0 (CSV `""` in string columns stays a value, unlike
+      pandas); `Sum` skips nulls via set-bit iteration; `String` renders
+      `null`; `Info` shows non-null counts and bitmap memory. Bonus: loaders
+      split into `FromCSVReader`/`FromJSONReader` (path variants are sugar)
 
 ## Performance (seeded by the first benchmark — see
 [docs/first-benchmark-lessons.md](docs/first-benchmark-lessons.md))
@@ -44,7 +47,10 @@ Working checklist of the project. The living design document is
 - [ ] Decide copy-vs-share semantics of constructor slices (`NewFloat64Column` stores
       the caller's slice without copying — documented but unresolved)
 - [ ] Core operations: `Filter`, `Select`, then `GroupBy` and `Join`
-- [ ] More aggregations: `Mean`, `Min`, `Max`, `Count`
+- [ ] More aggregations: `Mean`, `Min`, `Max`, `Count` (null-aware from day one:
+      skip nulls, divide by valid count)
+- [ ] Nulls in `FromStructs` — a struct's `float64` field always has a value;
+      supporting nulls there means pointer fields (`*float64`) or `sql.Null[T]`
 - [ ] Module path rename to `github.com/gverdugo-dev/grizzly` + `v0.1.0` tag
       (required to `go get` it from other repos)
 - [ ] Tests (parked deliberately for now)

@@ -52,8 +52,8 @@ func (d Dataframe) String() string {
 }
 
 // Info returns a structural summary of the dataframe, in the spirit of
-// pandas' DataFrame.info(): one line per column with its name, dtype and
-// approximate memory footprint.
+// pandas' DataFrame.info(): one line per column with its name, dtype,
+// non-null count and approximate memory footprint.
 func (d Dataframe) Info() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "grizzly.Dataframe: %d rows × %d columns\n", d.NumRows(), d.NumCols())
@@ -63,12 +63,17 @@ func (d Dataframe) Info() string {
 		nameW = max(nameW, len(c.Name()))
 	}
 
-	fmt.Fprintf(&b, " #   %-*s  %-8s  %s\n", nameW, "name", "dtype", "memory")
+	// Width of the non-null count column: "<rows> non-null" at its widest.
+	countW := len(fmt.Sprintf("%d non-null", d.NumRows()))
+
+	fmt.Fprintf(&b, " #   %-*s  %-8s  %-*s  %s\n", nameW, "name", "dtype", countW, "non-null", "memory")
 	var total int
 	for j, c := range d.cols {
 		mem := colMemory(c)
 		total += mem
-		fmt.Fprintf(&b, " %-3d %-*s  %-8s  %s\n", j, nameW, c.Name(), c.DType(), formatBytes(mem))
+		nonNull := fmt.Sprintf("%d non-null", c.Len()-c.NullCount())
+		fmt.Fprintf(&b, " %-3d %-*s  %-8s  %-*s  %s\n",
+			j, nameW, c.Name(), c.DType(), countW, nonNull, formatBytes(mem))
 	}
 	fmt.Fprintf(&b, "total memory: %s\n", formatBytes(total))
 	return b.String()
@@ -79,6 +84,11 @@ func (d Dataframe) Info() string {
 // This is the package's single point of "concrete type knowledge" for
 // rendering: adding a new column type means adding one case here.
 func cellString(c Column, i int) string {
+	// Null check first, through the type-agnostic interface: printing the
+	// placeholder (0.00 for a null price) would be lying about the data.
+	if !c.IsValid(i) {
+		return "null"
+	}
 	switch c := c.(type) {
 	case *Float64Column:
 		// 'g' with precision -1: shortest representation that round-trips.
@@ -95,12 +105,14 @@ func cellString(c Column, i int) string {
 // For strings it counts the slice's string headers (16 bytes each on 64-bit:
 // a pointer + a length) plus the byte content they point to on the heap —
 // a concrete reminder that strings are indirection, floats are not.
+// The validity bitmap, when present, adds 8 bytes per word (its ~0.4%
+// overhead made visible).
 func colMemory(c Column) int {
 	switch c := c.(type) {
 	case *Float64Column:
-		return 8 * len(c.values)
+		return 8*len(c.values) + 8*len(c.validity)
 	case *StringColumn:
-		mem := 16 * len(c.values)
+		mem := 16*len(c.values) + 8*len(c.validity)
 		for _, s := range c.values {
 			mem += len(s)
 		}
