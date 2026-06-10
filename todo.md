@@ -61,9 +61,14 @@ this is just the task view of it.
 - [x] `GroupBy`: design decided — hash factorize (typed maps → `groupIDs []int`),
       eager `GroupBy(...).Agg(specs...)`, null keys = one group, first-appearance
       order. See [docs/groupby-design-space.md](docs/groupby-design-space.md)
-- [ ] `GroupBy`: implement ← next. Factorize per dtype, `GroupedDataframe`,
-      `Agg` with `Sum`/`Avg`/`Min`/`Max`/`Count` specs (single key column;
-      multi-key later via id combination)
+- [x] `GroupBy`: implement — generic `factorizeSlice[T comparable]` (+ map-free
+      bool variant), `GroupedDataframe` with deferred error (sql.Row.Scan
+      pattern, keeps the `GroupBy().Agg()` chain compiling), package-level agg
+      specs, map-free per-group passes, `gatherRows` primitive (reusable by
+      `Sort`). Single key column; multi-key later via id combination
+- [ ] `Sort` ← next (gatherRows already does the reorder; the work is
+      producing the permutation: sort.Slice over row indices, null placement
+      to decide — nulls first vs last)
 - [ ] `Select` (column projection)
 - [ ] `GroupBy` (+ aggregations over groups)
 - [ ] `Sort`

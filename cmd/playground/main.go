@@ -107,6 +107,21 @@ func main() {
 	fmt.Println("…selecting product, price:")
 	fmt.Println(projected)
 
+	// GroupBy: hash factorize stamps each row with a group id, Agg runs
+	// map-free per-group aggregations. kiwi's null price is skipped inside
+	// downtown's aggregates (but kiwi still counts in count_product).
+	byStore, err := fromCSV.GroupBy("store").Agg(
+		grizzly.Sum("price"),
+		grizzly.Avg("price"),
+		grizzly.Count("product"),
+	)
+	if err != nil {
+		logger.Error("grouping", "err", err)
+		return
+	}
+	fmt.Println("GroupBy(store).Agg(Sum, Avg, Count):")
+	fmt.Println(byStore)
+
 	// The JSON has a null price (kiwi) and a null product: JSON's literal
 	// null works for every column type.
 	fromJSON, err := grizzly.FromJSON("cmd/playground/testdata/sales.json", schema)
