@@ -78,6 +78,29 @@ func (d Dataframe) Column(name string) (Column, error) {
 	return nil, fmt.Errorf("%w: %q", ErrColumnNotFound, name)
 }
 
+// Select returns a new Dataframe containing the named columns, in the
+// given order — column projection, SQL's SELECT clause (Where is the
+// WHERE). Duplicate names are an error.
+//
+// Columns are shared with the original dataframe, not copied: columns are
+// immutable after construction, so sharing is safe and Select is
+// O(columns) regardless of row count. polars does the same with its
+// immutable buffers.
+//
+// It returns ErrColumnNotFound if any requested column does not exist.
+func (d Dataframe) Select(names ...string) (Dataframe, error) {
+	cols := make([]Column, len(names))
+	for i, name := range names {
+		col, err := d.Column(name)
+		if err != nil {
+			return Dataframe{}, err
+		}
+		cols[i] = col
+	}
+	// NewDataframe re-validates: duplicate names in the selection fail here.
+	return NewDataframe(cols...)
+}
+
 // Sum returns the sum of the numeric column with the given name.
 //
 // Null rows are skipped (SQL aggregate semantics): the sum of the valid

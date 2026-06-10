@@ -97,6 +97,16 @@ func main() {
 	fmt.Println("cheap (price < 2.0) AND downtown:")
 	fmt.Println(cheapDowntown)
 
+	// Select projects columns (shared, not copied) — together with Where
+	// this is the full SQL shape: SELECT product, price FROM df WHERE ...
+	projected, err := cheapDowntown.Select("product", "price")
+	if err != nil {
+		logger.Error("selecting", "err", err)
+		return
+	}
+	fmt.Println("…selecting product, price:")
+	fmt.Println(projected)
+
 	// The JSON has a null price (kiwi) and a null product: JSON's literal
 	// null works for every column type.
 	fromJSON, err := grizzly.FromJSON("cmd/playground/testdata/sales.json", schema)

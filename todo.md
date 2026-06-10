@@ -55,8 +55,11 @@ this is just the task view of it.
       `Eq`/`Ne`/`Lt`/`Le`/`Gt`/`Ge` (generic `cmp.Ordered` core; bool gets
       Eq/Ne from its packed words), word-level Kleene `And`/`Or`/`Not`,
       `Where` gathers valid-AND-true rows in one materialization
-- [ ] `Select` ← next (column projection; shares columns, no copy —
-      immutability makes it O(cols))
+- [x] `Select` — column projection and reorder, O(cols): shares the Column
+      pointers (safe: columns are immutable after construction), duplicate
+      and missing names error via NewDataframe revalidation
+- [ ] `GroupBy` ← next (needs its own design discussion: hash on what,
+      aggregations API, null keys)
 - [ ] `Select` (column projection)
 - [ ] `GroupBy` (+ aggregations over groups)
 - [ ] `Sort`
