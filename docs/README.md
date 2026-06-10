@@ -41,7 +41,15 @@ space and rationale live in [Annex: Nulls in Go](nulls-in-go.md)):
   turn empty CSV cells / JSON `null`s into bit 0 + placeholder. Three-valued logic
   for comparisons is parked until `Filter` exists.
 
-### 3. Explicit schema on load (decided)
+### 3. Three base dtypes: float64, string, bool (decided)
+
+No integer column: every number is a float64 — the JSON/JavaScript model. One
+numeric type keeps the schema, the loaders and every type-switch point small.
+The documented trade-off: float64 represents integers exactly only up to 2^53
+(~9·10^15), so a 17-digit ID would silently lose precision. Acceptable for the
+data grizzly targets; revisit only if it ever bites.
+
+### 4. Explicit schema on load (decided)
 
 When loading untyped sources (CSV, JSON), the **user declares the column types** via an
 explicit schema — like a database, unlike pandas. Rationale: zero ambiguity, no
@@ -55,6 +63,32 @@ Struct-based construction needs no schema: types come from the struct fields the
   implementations (`Float64Column`, `StringColumn`...) over a closed set of types
   (`float64`, `int64`, `string`, `bool`). Generics collapse into this anyway because a
   dataframe is heterogeneous at runtime.
+
+## Roadmap (versioned phases)
+
+Versions follow semver with git tags. `v0.x` means the API can still change
+freely between minors. [todo.md](../todo.md) is the task-level view of this.
+
+### v0.1.0 — load, look, ask (in progress)
+
+One table end-to-end: load real data, inspect it, query and transform it.
+
+- Done: loaders (structs, CSV, JSON, with `io.Reader` variants), explicit
+  schema, `String`/`Info`, nulls end-to-end, aggregations
+  (`Sum`/`Avg`/`Min`/`Max`/`Count`).
+- Pending: `BoolColumn` (closes the base dtypes), `Filter`, `Select`,
+  `GroupBy`, `Sort`, `Example`-based tests, and the tag.
+
+### v0.2.0 — fast
+
+Performance, guided by profiling, not guessing (see
+[Annex: Lessons from the first benchmark](first-benchmark-lessons.md)):
+pprof the loaders, parallelize parsing by chunks, re-benchmark against
+pandas/polars.
+
+### v0.3.0 — relational
+
+`Join` across dataframes, and whatever GroupBy's design forces us to revisit.
 
 ## Annexes (learning notes)
 
