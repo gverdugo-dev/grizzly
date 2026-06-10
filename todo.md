@@ -47,8 +47,11 @@ Working checklist of the project. The living design document is
 - [ ] Decide copy-vs-share semantics of constructor slices (`NewFloat64Column` stores
       the caller's slice without copying — documented but unresolved)
 - [ ] Core operations: `Filter`, `Select`, then `GroupBy` and `Join`
-- [ ] More aggregations: `Mean`, `Min`, `Max`, `Count` (null-aware from day one:
-      skip nulls, divide by valid count)
+- [x] More aggregations: `Avg` (SQL naming, not pandas' mean), `Min`, `Max`,
+      `Count` — null-aware: skip nulls, `Avg` divides by valid count, and
+      `Avg`/`Min`/`Max` of an empty or all-null column return
+      `ErrNoValidValues`. All share the bitmap walk via the `validValues`
+      iterator (range-over-func)
 - [ ] Nulls in `FromStructs` — a struct's `float64` field always has a value;
       supporting nulls there means pointer fields (`*float64`) or `sql.Null[T]`
 - [ ] Module path rename to `github.com/gverdugo-dev/grizzly` + `v0.1.0` tag

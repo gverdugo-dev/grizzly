@@ -1,6 +1,10 @@
 package grizzly
 
-import "fmt"
+import (
+	"fmt"
+	"iter"
+	"math/bits"
+)
 
 // DType identifies the data type of a column. Grizzly supports a closed set
 // of column types; every Column implementation reports exactly one DType.
@@ -104,6 +108,38 @@ func (c *Float64Column) NullCount() int {
 // ignored. It panics if i is out of range.
 func (c *Float64Column) Value(i int) (float64, bool) {
 	return c.values[i], c.validity == nil || bitmapGet(c.validity, i)
+}
+
+// validValues returns an iterator over the column's valid (non-null)
+// values, in row order. It is the single implementation of the bitmap
+// walk: every aggregation (Sum, Avg, Min, Max...) ranges over this
+// instead of repeating the loop.
+//
+// Null-free columns take a branch-free pass over the contiguous slice.
+// With a bitmap, the walk visits only set bits: TrailingZeros64 finds
+// the lowest one (one CPU instruction), word &= word-1 clears it, so a
+// word with k valid rows costs k iterations — placeholders at null rows
+// are never read.
+func (c *Float64Column) validValues() iter.Seq[float64] {
+	return func(yield func(float64) bool) {
+		if c.validity == nil {
+			for _, v := range c.values {
+				if !yield(v) {
+					return
+				}
+			}
+			return
+		}
+		for w, word := range c.validity {
+			for word != 0 {
+				i := w<<6 + bits.TrailingZeros64(word)
+				if !yield(c.values[i]) {
+					return
+				}
+				word &= word - 1
+			}
+		}
+	}
 }
 
 // StringColumn is a column of string values backed by a contiguous slice.

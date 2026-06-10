@@ -9,7 +9,6 @@ package grizzly
 import (
 	"errors"
 	"fmt"
-	"math/bits"
 )
 
 // ErrColumnNotFound is returned when the requested column does not exist in
@@ -19,6 +18,11 @@ var ErrColumnNotFound = errors.New("column does not exist in dataframe")
 // ErrTypeMismatch is returned when an operation is applied to a column whose
 // type does not support it (e.g. Sum over a string column).
 var ErrTypeMismatch = errors.New("operation not supported for column type")
+
+// ErrNoValidValues is returned by aggregations that have no honest answer
+// over zero values (Avg, Min, Max of an empty or all-null column) — the
+// Go-flavored equivalent of SQL returning NULL in that case.
+var ErrNoValidValues = errors.New("no valid values in column")
 
 // Dataframe is an in-memory, column-oriented table.
 //
@@ -86,30 +90,114 @@ func (d Dataframe) Sum(name string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// Type-switch to reach the concrete typed slice: the hot loops below run
-	// over a contiguous []float64 with no interface indirection per value.
+	// Type-switch to reach the concrete column: validValues ranges over the
+	// contiguous typed slice (skipping null rows via the bitmap) with no
+	// interface indirection per value.
 	switch c := col.(type) {
 	case *Float64Column:
 		var sum float64
-		if c.validity == nil { // no nulls: branch-free hot loop
-			for _, v := range c.values {
-				sum += v
-			}
-			return sum, nil
-		}
-		// Walk the bitmap word by word visiting only set bits:
-		// TrailingZeros64 finds the lowest set bit (one CPU instruction),
-		// word &= word-1 clears it. A word with k set bits costs k
-		// iterations, not 64 — null placeholders are never even read.
-		for w, word := range c.validity {
-			for word != 0 {
-				i := w<<6 + bits.TrailingZeros64(word)
-				sum += c.values[i]
-				word &= word - 1
-			}
+		for v := range c.validValues() {
+			sum += v
 		}
 		return sum, nil
 	default:
 		return 0, fmt.Errorf("%w: cannot sum %s column %q", ErrTypeMismatch, col.DType(), name)
+	}
+}
+
+// Count returns the number of valid (non-null) rows in the column with the
+// given name — SQL's COUNT(col), not COUNT(*). It works for any column
+// type, and an empty or all-null column counts 0 (not an error: the count
+// of nothing is zero).
+//
+// It returns ErrColumnNotFound if the column does not exist.
+func (d Dataframe) Count(name string) (int, error) {
+	col, err := d.Column(name)
+	if err != nil {
+		return 0, err
+	}
+	// Len and NullCount are on the Column interface, so no type switch is
+	// needed — and NullCount is popcount-based, not a per-row loop.
+	return col.Len() - col.NullCount(), nil
+}
+
+// Avg returns the average of the valid values in the numeric column with
+// the given name: the sum of the valid values divided by their count, per
+// the SQL aggregate convention (nulls are skipped, in both numerator and
+// denominator).
+//
+// It returns ErrColumnNotFound if the column does not exist,
+// ErrTypeMismatch if the column is not numeric, and ErrNoValidValues if
+// the column is empty or all-null (an average over zero values has no
+// honest answer).
+func (d Dataframe) Avg(name string) (float64, error) {
+	// Pure composition: Sum and Count are already null-aware.
+	sum, err := d.Sum(name)
+	if err != nil {
+		return 0, err
+	}
+	n, err := d.Count(name)
+	if err != nil {
+		return 0, err
+	}
+	if n == 0 {
+		return 0, fmt.Errorf("%w: cannot average column %q", ErrNoValidValues, name)
+	}
+	return sum / float64(n), nil
+}
+
+// Min returns the smallest valid value in the numeric column with the
+// given name. Null rows are skipped.
+//
+// It returns ErrColumnNotFound if the column does not exist,
+// ErrTypeMismatch if the column is not numeric, and ErrNoValidValues if
+// the column is empty or all-null (the minimum of nothing does not exist).
+func (d Dataframe) Min(name string) (float64, error) {
+	col, err := d.Column(name)
+	if err != nil {
+		return 0, err
+	}
+	switch c := col.(type) {
+	case *Float64Column:
+		best, found := 0.0, false
+		for v := range c.validValues() {
+			if !found || v < best {
+				best, found = v, true
+			}
+		}
+		if !found {
+			return 0, fmt.Errorf("%w: cannot take min of column %q", ErrNoValidValues, name)
+		}
+		return best, nil
+	default:
+		return 0, fmt.Errorf("%w: cannot take min of %s column %q", ErrTypeMismatch, col.DType(), name)
+	}
+}
+
+// Max returns the largest valid value in the numeric column with the
+// given name. Null rows are skipped.
+//
+// It returns ErrColumnNotFound if the column does not exist,
+// ErrTypeMismatch if the column is not numeric, and ErrNoValidValues if
+// the column is empty or all-null (the maximum of nothing does not exist).
+func (d Dataframe) Max(name string) (float64, error) {
+	col, err := d.Column(name)
+	if err != nil {
+		return 0, err
+	}
+	switch c := col.(type) {
+	case *Float64Column:
+		best, found := 0.0, false
+		for v := range c.validValues() {
+			if !found || v > best {
+				best, found = v, true
+			}
+		}
+		if !found {
+			return 0, fmt.Errorf("%w: cannot take max of column %q", ErrNoValidValues, name)
+		}
+		return best, nil
+	default:
+		return 0, fmt.Errorf("%w: cannot take max of %s column %q", ErrTypeMismatch, col.DType(), name)
 	}
 }
