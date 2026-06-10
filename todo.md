@@ -41,10 +41,13 @@ this is just the task view of it.
 
 ## v0.1.0 — load, look, ask
 
-- [ ] `BoolColumn` ← next (stresses every type-switch point: `cellString`,
-      `colMemory`, loaders, `FromStructs`; storage representation to decide:
-      packed bitmap vs `[]bool`)
-- [ ] `Filter` (design first: predicate API, bool-mask connection)
+- [x] `BoolColumn` — packed values (1 bit per row, Arrow-style), explicit
+      logical `length` field (buffer words ≠ rows), hand-written bounds
+      checks; loads from CSV (`ParseBool`, empty = null), JSON (literal
+      null) and structs (`reflect.Bool`). `FromStructs` moved to the
+      finish-closure pattern along the way. See
+      [docs/bitmaps-and-words.md](docs/bitmaps-and-words.md)
+- [ ] `Filter` ← next (design first: predicate API, bool-mask connection)
 - [ ] `Select` (column projection)
 - [ ] `GroupBy` (+ aggregations over groups)
 - [ ] `Sort`
