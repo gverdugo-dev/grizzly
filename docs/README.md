@@ -57,12 +57,30 @@ guessing bugs (a `"08001"` zip code never becomes an int), and idiomatic Go
 (explicit > magic). Type inference may be added later as an optional layer on top.
 Struct-based construction needs no schema: types come from the struct fields themselves.
 
+### 5. Column representation: interface + typed implementations (decided)
+
+A `Column` interface exposing only type-agnostic behavior (`Name`, `Len`, `DType`,
+`IsValid`, `NullCount`), with one concrete implementation per dtype
+(`Float64Column`, `StringColumn`, `BoolColumn`) over contiguous (or packed)
+buffers. Anything needing concrete values type-switches to the implementation.
+This was the original leading candidate and survived contact with reality:
+generics collapse into it anyway because a dataframe is heterogeneous at runtime.
+
+### 6. Filter: columnar comparators + combinable masks (decided)
+
+Comparators on the Dataframe (`Eq`, `Lt`, `Gt`...) produce **masks**; masks
+combine with `And`/`Or`/`Not` at word level over packed bits; one final
+`Where` materializes the surviving rows — the polars/NumPy model, chosen
+because it builds on proven designs and makes the bitmap machinery carry the
+feature. Null comparisons follow Kleene three-valued logic, implemented once
+in the mask combinators (`Where` keeps only valid-and-true rows, like SQL's
+WHERE). The full design space and rejected options (row predicates, typed
+per-column predicates, expression strings) are mapped in
+[Annex: Filter — the design space](filter-design-space.md).
+
 ## Open questions
 
-- **Column representation in Go** — leading candidate: a `Column` interface with typed
-  implementations (`Float64Column`, `StringColumn`...) over a closed set of types
-  (`float64`, `int64`, `string`, `bool`). Generics collapse into this anyway because a
-  dataframe is heterogeneous at runtime.
+- None right now — the next ones will come from GroupBy's design.
 
 ## Roadmap (versioned phases)
 
@@ -108,6 +126,10 @@ pandas/polars.
   twiddling, popcount, the `nil` = no-nulls trick), comma-ok vs `Null[T]` vs two-method
   APIs, always-nullable columns, and SQL skip-null semantics. Records all four
   decisions.
+- [Filter: the design space](filter-design-space.md) — the four candidate Filter
+  APIs (row predicate, typed per-column predicate, columnar masks, expression
+  strings) with pros and cons, and the three-valued (Kleene) null logic that
+  filtering forces. Underpins the Filter design decision (mask-based, option C).
 - [Bitmaps and machine words](bitmaps-and-words.md) — the low-level vocabulary under
   the validity bitmap and `BoolColumn`'s storage choice: what a 64-bit word is, the
   `i>>6` / `i&63` arithmetic, popcount and set-bit iteration, the trailing-bits-zero

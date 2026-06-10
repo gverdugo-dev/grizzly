@@ -47,7 +47,12 @@ this is just the task view of it.
       null) and structs (`reflect.Bool`). `FromStructs` moved to the
       finish-closure pattern along the way. See
       [docs/bitmaps-and-words.md](docs/bitmaps-and-words.md)
-- [ ] `Filter` ← next (design first: predicate API, bool-mask connection)
+- [x] `Filter`: design decided — columnar comparators (`Eq`/`Lt`/`Gt`...) →
+      combinable masks (`And`/`Or`/`Not`, word-level, Kleene null logic) →
+      `Where` materializes. See
+      [docs/filter-design-space.md](docs/filter-design-space.md)
+- [ ] `Filter`: implement ← next. Mask type, comparators per dtype, Kleene
+      combinators, `Where` gather
 - [ ] `Select` (column projection)
 - [ ] `GroupBy` (+ aggregations over groups)
 - [ ] `Sort`
