@@ -11,6 +11,7 @@ package grizzly_test
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/gverdugo-dev/grizzly"
@@ -141,6 +142,44 @@ func ExampleDataframe_GroupBy() {
 	// store  price  avg
 	// north  2      1
 	// south  4      2
+}
+
+// ExampleDataframe_ToCSVWriter writes the dataframe as CSV. Nulls become
+// empty cells (note bilbao's missing temp), which round-trip for float64
+// and bool columns — see ToCSVWriter for the string caveat.
+func ExampleDataframe_ToCSVWriter() {
+	src := `[{"city": "madrid", "temp": 21.5}, {"city": "bilbao", "temp": null}]`
+	schema := grizzly.Schema{
+		{Name: "city", Type: grizzly.String},
+		{Name: "temp", Type: grizzly.Float64},
+	}
+	df, _ := grizzly.FromJSONReader(strings.NewReader(src), schema)
+
+	if err := df.ToCSVWriter(os.Stdout); err != nil {
+		log.Fatal(err)
+	}
+	// Output:
+	// city,temp
+	// madrid,21.5
+	// bilbao,
+}
+
+// ExampleDataframe_ToJSONWriter writes the dataframe as a compact JSON
+// array of objects — the exact shape FromJSONReader loads, with literal
+// nulls, so the output round-trips exactly.
+func ExampleDataframe_ToJSONWriter() {
+	src := `[{"city": "madrid", "temp": 21.5}, {"city": "bilbao", "temp": null}]`
+	schema := grizzly.Schema{
+		{Name: "city", Type: grizzly.String},
+		{Name: "temp", Type: grizzly.Float64},
+	}
+	df, _ := grizzly.FromJSONReader(strings.NewReader(src), schema)
+
+	if err := df.ToJSONWriter(os.Stdout); err != nil {
+		log.Fatal(err)
+	}
+	// Output:
+	// [{"city":"madrid","temp":21.5},{"city":"bilbao","temp":null}]
 }
 
 // ExampleDataframe_Sort orders rows by a column, returning a new
