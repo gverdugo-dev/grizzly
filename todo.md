@@ -66,9 +66,11 @@ this is just the task view of it.
       pattern, keeps the `GroupBy().Agg()` chain compiling), package-level agg
       specs, map-free per-group passes, `gatherRows` primitive (reusable by
       `Sort`). Single key column; multi-key later via id combination
-- [ ] `Sort` ← next (gatherRows already does the reorder; the work is
-      producing the permutation: sort.Slice over row indices, null placement
-      to decide — nulls first vs last)
+- [x] `Sort` / `SortDesc` — stable permutation sort (slices.SortStableFunc +
+      cmp.Compare over row indices, generic cmpRows for float64/string),
+      nulls first in both directions (polars' rule), columns reordered via
+      gatherRows; original dataframe untouched
+- [ ] `Example`-based tests ← next (then the tag)
 - [ ] `Select` (column projection)
 - [ ] `GroupBy` (+ aggregations over groups)
 - [ ] `Sort`

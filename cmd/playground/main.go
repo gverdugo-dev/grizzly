@@ -125,6 +125,16 @@ func main() {
 	fmt.Println("GroupBy(store).Agg(Sum, Avg, Count):")
 	fmt.Println(byStore)
 
+	// Sort: orders a row-index permutation, then gathers each column once.
+	// Nulls first (polars' rule), stable for equal keys, original untouched.
+	byPrice, err := fromCSV.SortDesc("price")
+	if err != nil {
+		logger.Error("sorting", "err", err)
+		return
+	}
+	fmt.Println("SortDesc(price) — null first, then descending:")
+	fmt.Println(byPrice)
+
 	// The JSON has a null price (kiwi) and a null product: JSON's literal
 	// null works for every column type.
 	fromJSON, err := grizzly.FromJSON("cmd/playground/testdata/sales.json", schema)
