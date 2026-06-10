@@ -1,6 +1,9 @@
 package grizzly
 
-import "math/bits"
+import (
+	"iter"
+	"math/bits"
+)
 
 // This file implements the validity bitmap shared by all column types:
 // one bit per row, 1 = valid, 0 = null, packed into []uint64 words
@@ -63,6 +66,31 @@ func validityFromBools(valid []bool) []uint64 {
 		}
 	}
 	return nil
+}
+
+// clearTrailingBits zeroes the bits past logical length n in the last
+// word, restoring the trailing-bits-zero invariant after a whole-word
+// operation (like NOT) that may have set them.
+func clearTrailingBits(bm []uint64, n int) {
+	if r := n & 63; r != 0 && len(bm) > 0 {
+		bm[len(bm)-1] &= (1 << r) - 1
+	}
+}
+
+// setBits returns an iterator over the positions of the set bits in bm,
+// in ascending order — the reusable form of the TrailingZeros64 +
+// word &= word-1 walk.
+func setBits(bm []uint64) iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for w, word := range bm {
+			for word != 0 {
+				if !yield(w<<6 + bits.TrailingZeros64(word)) {
+					return
+				}
+				word &= word - 1
+			}
+		}
+	}
 }
 
 // bitmapCountSet returns the number of set bits (valid rows) in bm.
