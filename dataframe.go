@@ -9,6 +9,7 @@ package grizzly
 import (
 	"errors"
 	"fmt"
+	"math/bits"
 )
 
 // ErrColumnNotFound is returned when the requested column does not exist in
@@ -75,6 +76,9 @@ func (d Dataframe) Column(name string) (Column, error) {
 
 // Sum returns the sum of the numeric column with the given name.
 //
+// Null rows are skipped (SQL aggregate semantics): the sum of the valid
+// values is returned, and an all-null column sums to 0.
+//
 // It returns ErrColumnNotFound if the column does not exist, and
 // ErrTypeMismatch if the column is not numeric.
 func (d Dataframe) Sum(name string) (float64, error) {
@@ -82,13 +86,27 @@ func (d Dataframe) Sum(name string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// Type-switch to reach the concrete typed slice: the hot loop below runs
+	// Type-switch to reach the concrete typed slice: the hot loops below run
 	// over a contiguous []float64 with no interface indirection per value.
 	switch c := col.(type) {
 	case *Float64Column:
 		var sum float64
-		for _, v := range c.values {
-			sum += v
+		if c.validity == nil { // no nulls: branch-free hot loop
+			for _, v := range c.values {
+				sum += v
+			}
+			return sum, nil
+		}
+		// Walk the bitmap word by word visiting only set bits:
+		// TrailingZeros64 finds the lowest set bit (one CPU instruction),
+		// word &= word-1 clears it. A word with k set bits costs k
+		// iterations, not 64 — null placeholders are never even read.
+		for w, word := range c.validity {
+			for word != 0 {
+				i := w<<6 + bits.TrailingZeros64(word)
+				sum += c.values[i]
+				word &= word - 1
+			}
 		}
 		return sum, nil
 	default:
