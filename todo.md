@@ -70,7 +70,16 @@ this is just the task view of it.
       cmp.Compare over row indices, generic cmpRows for float64/string),
       nulls first in both directions (polars' rule), columns reordered via
       gatherRows; original dataframe untouched
-- [ ] `Example`-based tests covering the public API ← next
+- [x] Tests — unit tests per source file (white-box `bitmap_test.go` in package
+      `grizzly`; everything else black-box in `grizzly_test`): bitmap word math
+      and partial last word, column constructors and comma-ok, the three loaders
+      (CSV/JSON null rules, ParseBool, errors), aggregations (skip-null,
+      sentinels via `errors.Is`), Kleene mask edges observed through `Where`
+      composition, GroupBy (first-appearance determinism ×20, null keys = one
+      group, deferred errors), Sort (nulls first both ways, stability)
+- [x] `Example`-based tests covering the public API — runnable godoc examples
+      with `// Output:` blocks (`example_test.go`): the full tour, float data
+      with exact binary representations so output stays stable
 - [ ] Tag `v0.1.0` (required to `go get` it from other repos)
 
 ## v0.2.0 — fast
