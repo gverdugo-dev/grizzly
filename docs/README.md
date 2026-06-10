@@ -108,6 +108,11 @@ pandas/polars.
   twiddling, popcount, the `nil` = no-nulls trick), comma-ok vs `Null[T]` vs two-method
   APIs, always-nullable columns, and SQL skip-null semantics. Records all four
   decisions.
+- [Bitmaps and machine words](bitmaps-and-words.md) — the low-level vocabulary under
+  the validity bitmap and `BoolColumn`'s storage choice: what a 64-bit word is, the
+  `i>>6` / `i&63` arithmetic, popcount and set-bit iteration, the trailing-bits-zero
+  invariant, and why a packed column needs an explicit `length` (logical length ≠
+  buffer size, as in Arrow).
 - [Lessons from the first benchmark](first-benchmark-lessons.md) — grizzly vs
   pandas/polars on 1M rows: beating pandas' C parser on CSV single-threaded, why
   polars' 0.032s needs parallel+SIMD, `FromJSON`'s map/boxing cost as the real weak
