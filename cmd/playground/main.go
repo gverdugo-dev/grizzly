@@ -110,8 +110,11 @@ func main() {
 	// GroupBy: hash factorize stamps each row with a group id, Agg runs
 	// map-free per-group aggregations. kiwi's null price is skipped inside
 	// downtown's aggregates (but kiwi still counts in count_product).
+	// Output columns keep the source name by default (Count("product") →
+	// "product"); As renames, and is required when aggregating the same
+	// column twice — duplicate names fail at result construction.
 	byStore, err := fromCSV.GroupBy("store").Agg(
-		grizzly.Sum("price"),
+		grizzly.Sum("price").As("total"),
 		grizzly.Avg("price"),
 		grizzly.Count("product"),
 	)

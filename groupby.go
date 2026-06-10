@@ -140,24 +140,41 @@ const (
 	aggCount
 )
 
-// aggNames maps each operation to the prefix of its output column name
-// (sum_price, count_product...).
+// aggNames maps each operation to its display name, used in error
+// messages.
 var aggNames = map[aggOp]string{
-	aggSum:   "sum",
-	aggAvg:   "avg",
-	aggMin:   "min",
-	aggMax:   "max",
-	aggCount: "count",
+	aggSum:   "Sum",
+	aggAvg:   "Avg",
+	aggMin:   "Min",
+	aggMax:   "Max",
+	aggCount: "Count",
 }
 
 // AggSpec describes one aggregation for GroupedDataframe.Agg: which
-// operation over which column. Build specs with the package-level
-// constructors Sum, Avg, Min, Max and Count — package functions, distinct
-// from the Dataframe methods of the same names (Go resolves them by
-// receiver, so grizzly.Sum("price") and df.Sum("price") coexist).
+// operation over which column, and optionally the output column's name.
+// Build specs with the package-level constructors Sum, Avg, Min, Max and
+// Count — package functions, distinct from the Dataframe methods of the
+// same names (Go resolves them by receiver, so grizzly.Sum("price") and
+// df.Sum("price") coexist) — and rename with As.
 type AggSpec struct {
 	op  aggOp
 	col string
+	as  string // output column name; empty = same as col (polars-style)
+}
+
+// As renames the aggregation's output column, like SQL's AS:
+//
+//	df.GroupBy("store").Agg(
+//		grizzly.Sum("price"),                 // output column: price
+//		grizzly.Avg("price").As("avg_price"), // output column: avg_price
+//	)
+//
+// Without As the output keeps the source column's name, so aggregating
+// the same column twice requires renaming at least one of them (duplicate
+// names fail when the result dataframe is built).
+func (s AggSpec) As(name string) AggSpec {
+	s.as = name // value receiver: modifies the copy, returns it
+	return s
 }
 
 // Sum returns an AggSpec that sums the named column per group.
@@ -179,7 +196,9 @@ func Count(col string) AggSpec { return AggSpec{op: aggCount, col: col} }
 // Agg computes the given aggregations over the groups and returns the
 // result as a new Dataframe: the key column first (one row per group, in
 // first-appearance order, named like the original), then one float64
-// column per spec, named <op>_<column> (sum_price, count_product...).
+// column per spec — named after its source column, or as renamed with
+// AggSpec.As (required when the same column is aggregated twice:
+// duplicate output names are an error).
 //
 // Null semantics mirror the whole-column aggregations, translated to
 // per-group form: nulls are skipped; a group whose values are all null
@@ -211,7 +230,10 @@ func (g GroupedDataframe) Agg(specs ...AggSpec) (Dataframe, error) {
 		if err != nil {
 			return Dataframe{}, err
 		}
-		outName := aggNames[spec.op] + "_" + spec.col
+		outName := spec.col // default: keep the source column's name
+		if spec.as != "" {
+			outName = spec.as
+		}
 
 		// Count works for every column type: it only needs validity.
 		if spec.op == aggCount {
