@@ -54,17 +54,32 @@ func main() {
 		{Name: "price", Type: grizzly.Float64},
 	}
 
+	// The CSV has an empty price cell (kiwi → null) and a real 0.00 (lime):
+	// the validity bitmap keeps them apart — String prints "null" for one
+	// and 0 for the other, and aggregations skip only the former.
 	fromCSV, err := grizzly.FromCSV("cmd/playground/testdata/sales.csv", schema)
 	if err != nil {
 		logger.Error("loading csv", "err", err)
 		return
 	}
 	fmt.Println(fromCSV)
+	fmt.Println(fromCSV.Info())
 
+	count, _ := fromCSV.Count("price")
+	sum, _ := fromCSV.Sum("price")
+	avg, _ := fromCSV.Avg("price") // sum / valid count, NOT sum / rows
+	mn, _ := fromCSV.Min("price")
+	mx, _ := fromCSV.Max("price")
+	fmt.Printf("price: count=%d sum=%.2f avg=%.4f min=%.2f max=%.2f (%d rows; nulls skipped)\n\n",
+		count, sum, avg, mn, mx, fromCSV.NumRows())
+
+	// The JSON has a null price (kiwi) and a null product: JSON's literal
+	// null works for every column type.
 	fromJSON, err := grizzly.FromJSON("cmd/playground/testdata/sales.json", schema)
 	if err != nil {
 		logger.Error("loading json", "err", err)
 		return
 	}
+	fmt.Println(fromJSON)
 	fmt.Println(fromJSON.Info())
 }
