@@ -111,6 +111,27 @@ func FromCSVReader(r io.Reader, schema Schema) (Dataframe, error) {
 			finish = append(finish, func() (Column, error) {
 				return NewStringColumn(name, values), nil
 			})
+		case Bool:
+			var values []bool
+			var valid []bool
+			fills = append(fills, func(record []string, line int) error {
+				if record[src] == "" { // empty cell: placeholder value, validity bit 0
+					values = append(values, false)
+					valid = append(valid, false)
+					return nil
+				}
+				// ParseBool accepts 1/0, t/f, true/false in any common casing.
+				v, err := strconv.ParseBool(record[src])
+				if err != nil {
+					return fmt.Errorf("line %d, column %q: %w", line, name, err)
+				}
+				values = append(values, v)
+				valid = append(valid, true)
+				return nil
+			})
+			finish = append(finish, func() (Column, error) {
+				return NewBoolColumnWithNulls(name, values, valid)
+			})
 		default:
 			return Dataframe{}, fmt.Errorf("unsupported dtype %q for column %q",
 				field.Type, field.Name)

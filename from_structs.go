@@ -31,8 +31,12 @@ func FromStructs[T any](rows []T) (Dataframe, error) {
 	// pre-sized typed slice plus a closure that knows how to copy that field
 	// from a row into the slice. The per-row loop below then does no type
 	// decisions at all — they were all made here.
-	var cols []Column
+	//
+	// Columns are built by finish closures AFTER the transpose, not up
+	// front: BoolColumn packs its values at construction time, so its
+	// slice must be fully filled before the constructor runs.
 	var fill []func(rowIdx int, row reflect.Value)
+	var finish []func() Column
 
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -49,16 +53,22 @@ func FromStructs[T any](rows []T) (Dataframe, error) {
 		switch f.Type.Kind() {
 		case reflect.Float64:
 			values := make([]float64, len(rows)) // pre-sized: row count is known
-			cols = append(cols, NewFloat64Column(name, values))
 			fill = append(fill, func(r int, row reflect.Value) {
 				values[r] = row.Field(fieldIdx).Float()
 			})
+			finish = append(finish, func() Column { return NewFloat64Column(name, values) })
 		case reflect.String:
 			values := make([]string, len(rows))
-			cols = append(cols, NewStringColumn(name, values))
 			fill = append(fill, func(r int, row reflect.Value) {
 				values[r] = row.Field(fieldIdx).String()
 			})
+			finish = append(finish, func() Column { return NewStringColumn(name, values) })
+		case reflect.Bool:
+			values := make([]bool, len(rows))
+			fill = append(fill, func(r int, row reflect.Value) {
+				values[r] = row.Field(fieldIdx).Bool()
+			})
+			finish = append(finish, func() Column { return NewBoolColumn(name, values) })
 		default:
 			return Dataframe{}, fmt.Errorf(
 				"FromStructs: unsupported type %s for field %q", f.Type, f.Name)
@@ -73,6 +83,10 @@ func FromStructs[T any](rows []T) (Dataframe, error) {
 		}
 	}
 
+	cols := make([]Column, len(finish))
+	for i, fn := range finish {
+		cols[i] = fn()
+	}
 	logger.Debug("dataframe loaded from structs", "rows", len(rows), "cols", len(cols))
 	return NewDataframe(cols...)
 }

@@ -99,6 +99,27 @@ func FromJSONReader(r io.Reader, schema Schema) (Dataframe, error) {
 			finish = append(finish, func() (Column, error) {
 				return NewStringColumnWithNulls(name, values, valid)
 			})
+		case Bool:
+			var values []bool
+			var valid []bool
+			var buf bool
+			fills[name] = func(row int) error {
+				ptr := &buf
+				if err := dec.Decode(&ptr); err != nil {
+					return fmt.Errorf("row %d, key %q: %w", row, name, err)
+				}
+				if ptr == nil {
+					values = append(values, false)
+					valid = append(valid, false)
+					return nil
+				}
+				values = append(values, buf)
+				valid = append(valid, true)
+				return nil
+			}
+			finish = append(finish, func() (Column, error) {
+				return NewBoolColumnWithNulls(name, values, valid)
+			})
 		default:
 			return Dataframe{}, fmt.Errorf("unsupported dtype %q for column %q",
 				field.Type, field.Name)
