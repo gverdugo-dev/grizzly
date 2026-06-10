@@ -51,8 +51,12 @@ this is just the task view of it.
       combinable masks (`And`/`Or`/`Not`, word-level, Kleene null logic) →
       `Where` materializes. See
       [docs/filter-design-space.md](docs/filter-design-space.md)
-- [ ] `Filter`: implement ← next. Mask type, comparators per dtype, Kleene
-      combinators, `Where` gather
+- [x] `Filter`: implement — `Mask` (packed bits + validity), comparators
+      `Eq`/`Ne`/`Lt`/`Le`/`Gt`/`Ge` (generic `cmp.Ordered` core; bool gets
+      Eq/Ne from its packed words), word-level Kleene `And`/`Or`/`Not`,
+      `Where` gathers valid-AND-true rows in one materialization
+- [ ] `Select` ← next (column projection; shares columns, no copy —
+      immutability makes it O(cols))
 - [ ] `Select` (column projection)
 - [ ] `GroupBy` (+ aggregations over groups)
 - [ ] `Sort`

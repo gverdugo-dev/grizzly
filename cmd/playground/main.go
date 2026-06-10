@@ -75,6 +75,28 @@ func main() {
 	fmt.Printf("price: count=%d sum=%.2f avg=%.4f min=%.2f max=%.2f (%d rows; nulls skipped)\n\n",
 		count, sum, avg, mn, mx, fromCSV.NumRows())
 
+	// Filtering: comparators build masks, masks combine with Kleene
+	// three-valued logic, Where materializes once. kiwi (null price) is
+	// "unknown" for cheap — and unknown is not true, so it is dropped
+	// even though it is downtown (SQL WHERE semantics).
+	cheap, err := fromCSV.Lt("price", 2.0)
+	if err != nil {
+		logger.Error("building mask", "err", err)
+		return
+	}
+	downtown, err := fromCSV.Eq("store", "downtown")
+	if err != nil {
+		logger.Error("building mask", "err", err)
+		return
+	}
+	cheapDowntown, err := fromCSV.Where(cheap.And(downtown))
+	if err != nil {
+		logger.Error("filtering", "err", err)
+		return
+	}
+	fmt.Println("cheap (price < 2.0) AND downtown:")
+	fmt.Println(cheapDowntown)
+
 	// The JSON has a null price (kiwi) and a null product: JSON's literal
 	// null works for every column type.
 	fromJSON, err := grizzly.FromJSON("cmd/playground/testdata/sales.json", schema)
