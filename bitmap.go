@@ -37,6 +37,32 @@ func bitmapSet(bm []uint64, i int) {
 	bm[i>>6] |= 1 << (i & 63)
 }
 
+// validityFromBools compacts the ergonomic boundary representation
+// ([]bool, one byte per row) into a validity bitmap (one bit per row).
+//
+// It returns nil when every entry is true, preserving the nil = "no
+// nulls" fast path: callers can pass a fully-valid mask and still get
+// a bitmap-free column.
+func validityFromBools(valid []bool) []uint64 {
+	hasNull := false
+	for _, ok := range valid {
+		if !ok {
+			hasNull = true
+			break
+		}
+	}
+	if !hasNull {
+		return nil
+	}
+	bm := newBitmap(len(valid))
+	for i, ok := range valid {
+		if ok {
+			bitmapSet(bm, i)
+		}
+	}
+	return bm
+}
+
 // bitmapCountSet returns the number of set bits (valid rows) in bm.
 //
 // bits.OnesCount64 is a compiler intrinsic on most architectures: a

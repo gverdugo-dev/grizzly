@@ -1,5 +1,7 @@
 package grizzly
 
+import "fmt"
+
 // DType identifies the data type of a column. Grizzly supports a closed set
 // of column types; every Column implementation reports exactly one DType.
 //
@@ -51,9 +53,26 @@ type Float64Column struct {
 // NewFloat64Column returns a Float64Column with the given name and values.
 //
 // The slice is stored as-is (not copied): the caller must not mutate it
-// after construction.
+// after construction. The column has no nulls; use NewFloat64ColumnWithNulls
+// to mark some rows as null.
 func NewFloat64Column(name string, values []float64) *Float64Column {
 	return &Float64Column{name: name, values: values}
+}
+
+// NewFloat64ColumnWithNulls returns a Float64Column where valid[i] reports
+// whether values[i] is a real value (true) or a null (false). values and
+// valid must have the same length; otherwise an error is returned.
+//
+// The []bool mask is the ergonomic boundary representation: it is compacted
+// here, once, into the internal validity bitmap (and dropped entirely when
+// it contains no false entries). The value stored at a null row is kept as
+// a placeholder that operations never read.
+func NewFloat64ColumnWithNulls(name string, values []float64, valid []bool) (*Float64Column, error) {
+	if len(values) != len(valid) {
+		return nil, fmt.Errorf("column %q: %d values but %d validity entries",
+			name, len(values), len(valid))
+	}
+	return &Float64Column{name: name, values: values, validity: validityFromBools(valid)}, nil
 }
 
 // Name returns the column's name.
@@ -101,9 +120,26 @@ type StringColumn struct {
 // NewStringColumn returns a StringColumn with the given name and values.
 //
 // The slice is stored as-is (not copied): the caller must not mutate it
-// after construction.
+// after construction. The column has no nulls; use NewStringColumnWithNulls
+// to mark some rows as null.
 func NewStringColumn(name string, values []string) *StringColumn {
 	return &StringColumn{name: name, values: values}
+}
+
+// NewStringColumnWithNulls returns a StringColumn where valid[i] reports
+// whether values[i] is a real value (true) or a null (false). values and
+// valid must have the same length; otherwise an error is returned.
+//
+// The []bool mask is the ergonomic boundary representation: it is compacted
+// here, once, into the internal validity bitmap (and dropped entirely when
+// it contains no false entries). The value stored at a null row is kept as
+// a placeholder that operations never read.
+func NewStringColumnWithNulls(name string, values []string, valid []bool) (*StringColumn, error) {
+	if len(values) != len(valid) {
+		return nil, fmt.Errorf("column %q: %d values but %d validity entries",
+			name, len(values), len(valid))
+	}
+	return &StringColumn{name: name, values: values, validity: validityFromBools(valid)}, nil
 }
 
 // Name returns the column's name.
