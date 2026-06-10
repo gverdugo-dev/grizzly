@@ -107,8 +107,12 @@ One table end-to-end: load real data, inspect it, query and transform it.
 - Done: loaders (structs, CSV, JSON, with `io.Reader` variants), explicit
   schema, `String`/`Info`, nulls end-to-end, aggregations
   (`Sum`/`Avg`/`Min`/`Max`/`Count`), `BoolColumn`, `Filter` (masks + `Where`),
-  `Select`, `GroupBy`/`Agg`, `Sort`/`SortDesc`, unit tests and runnable
-  `Example` tests over the public API.
+  `Select`, `GroupBy`/`Agg`, `Sort`/`SortDesc`, `ToCSV`/`ToJSON` writers
+  (mirror of the loaders; JSON round-trips exactly, CSV's string-null
+  asymmetry is documented), unit tests and runnable `Example` tests over
+  the public API, clean-code audit (healthy), `columnBuilder` refactor
+  (per-dtype loading knowledge in one place), custom log handler removed
+  (stdlib `log/slog` only).
 - Pending: the tag.
 
 ### v0.2.0 — fast

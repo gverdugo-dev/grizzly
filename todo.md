@@ -80,6 +80,19 @@ this is just the task view of it.
 - [x] `Example`-based tests covering the public API — runnable godoc examples
       with `// Output:` blocks (`example_test.go`): the full tour, float data
       with exact binary representations so output stays stable
+- [x] Remove the custom color handler (`internal/logging/`): stdlib `log/slog`
+      only — library side unchanged (silent by default, `SetLogger` opt-in),
+      playground uses `slog.NewTextHandler`
+- [x] Clean-code audit (2026-06-10): healthy, 0 CRIT / 0 HIGH. Report in
+      `reports/clean-code-audit-2026-06-10-2208.md`; MEDIUMs tracked below
+- [x] Refactor: `columnBuilder` (audit MEDIUM) — per-dtype builders own parse,
+      null rules and finish for CSV and JSON; loaders are streaming drivers;
+      adding a dtype = one builder + one factory case. Named `readerBufSize`
+- [x] `ToCSV`/`ToJSON` writers — `io.Writer` core + path sugar, mirroring the
+      loaders. CSV nulls = empty cells (polars' default): exact round-trip for
+      float64/bool, documented asymmetry for strings; JSON literal nulls,
+      token-level streaming, exact round-trip, rejects NaN/Inf. Round-trip
+      tests + godoc examples
 - [ ] Tag `v0.1.0` (required to `go get` it from other repos)
 
 ## v0.2.0 — fast
@@ -97,3 +110,13 @@ this is just the task view of it.
       the caller's slice without copying — documented but unresolved)
 - [ ] Nulls in `FromStructs` — a struct's `float64` field always has a value;
       supporting nulls there means pointer fields (`*float64`) or `sql.Null[T]`
+- [ ] Configurable null marker for CSV (read **and** write) — would close the
+      string-null round-trip asymmetry documented in `ToCSVWriter`
+- [ ] Audit MEDIUMs remaining (see `reports/clean-code-audit-2026-06-10-2208.md`):
+      `Validity()` accessor on the `Column` interface (removes `columnValidity`),
+      `Where` reusing `gatherRows`, drop the `method string` param in `compare`
+- [ ] Audit LOWs: share the null-first preamble between `cmpRows`/`cmpBoolRows`,
+      rename `floatValue` → `floatAt` in tests
+
+Parquet support was considered and rejected (2026-06-10): no stdlib support in
+Go, and grizzly stays dependency-free.
