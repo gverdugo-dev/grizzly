@@ -3,12 +3,17 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"os"
+
 	"github.com/gverdugo-dev/grizzly"
-	"github.com/gverdugo-dev/grizzly/internal/logging"
 )
 
 func main() {
-	logger := logging.New(slog.LevelDebug)
+	// Plain stdlib text handler: a library consumer decides its own log
+	// format; grizzly itself stays format-agnostic (see grizzly.SetLogger).
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
 
 	// Opt in to grizzly's internal logs — by default the library is silent.
 	grizzly.SetLogger(logger)
