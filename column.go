@@ -201,6 +201,43 @@ func (c *BoolColumn) Value(i int) (bool, bool) {
 	return bitmapGet(c.values, i), c.validity == nil || bitmapGet(c.validity, i)
 }
 
+// gatherRows returns a new column holding the rows of col at the given
+// indices, in that order, preserving validity. It is the row-gather
+// primitive shared by GroupBy (building the key column of the result)
+// and, later, Sort.
+func gatherRows(col Column, rows []int) (Column, error) {
+	switch c := col.(type) {
+	case *Float64Column:
+		values := make([]float64, len(rows))
+		valid := make([]bool, len(rows))
+		for k, i := range rows {
+			values[k] = c.values[i]
+			valid[k] = c.validity == nil || bitmapGet(c.validity, i)
+		}
+		// WithNulls drops an all-true mask to a nil bitmap, so gathering
+		// from a null-free column stays null-free.
+		return NewFloat64ColumnWithNulls(c.name, values, valid)
+	case *StringColumn:
+		values := make([]string, len(rows))
+		valid := make([]bool, len(rows))
+		for k, i := range rows {
+			values[k] = c.values[i]
+			valid[k] = c.validity == nil || bitmapGet(c.validity, i)
+		}
+		return NewStringColumnWithNulls(c.name, values, valid)
+	case *BoolColumn:
+		values := make([]bool, len(rows))
+		valid := make([]bool, len(rows))
+		for k, i := range rows {
+			values[k] = bitmapGet(c.values, i)
+			valid[k] = c.validity == nil || bitmapGet(c.validity, i)
+		}
+		return NewBoolColumnWithNulls(c.name, values, valid)
+	default:
+		return nil, fmt.Errorf("%w: cannot gather rows of column %q", ErrTypeMismatch, col.Name())
+	}
+}
+
 // validValues returns an iterator over the column's valid (non-null)
 // values, in row order. It is the single implementation of the bitmap
 // walk: every aggregation (Sum, Avg, Min, Max...) ranges over this
