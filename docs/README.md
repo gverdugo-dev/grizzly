@@ -78,16 +78,22 @@ WHERE). The full design space and rejected options (row predicates, typed
 per-column predicates, expression strings) are mapped in
 [Annex: Filter — the design space](filter-design-space.md).
 
+### 7. GroupBy: hash-based factorize + eager Agg specs (decided)
+
+Hash-based grouping with typed maps per dtype, producing flat
+`groupIDs []int` (the factorize pattern) so aggregations run as map-free
+slice-indexed passes. Eager API in execution order —
+`df.GroupBy("store").Agg(grizzly.Sum("price"), ...)` — with inspectable
+package-level agg specs; the SQL-written-order shape
+(`Select(Sum(...)).GroupBy(...)`) is impossible without a lazy planner.
+Null keys form one group (SQL/polars rule: for grouping, null equals null —
+the opposite of WHERE); output rows come in first-appearance order
+(deterministic despite Go's randomized map iteration). Full design space in
+[Annex: GroupBy — the design space](groupby-design-space.md).
+
 ## Open questions
 
-- **GroupBy design** — algorithm (hash vs sort), key representation (typed maps +
-  the factorize/group-ids pattern; multi-column keys), API shape (eager
-  `GroupBy(...).Agg(specs...)` vs map of sub-dataframes), null keys (SQL/polars:
-  one group; pandas: dropped by default) and output order (Go maps iterate
-  randomly — first-appearance group ids fix it). The five axes with pros/cons and
-  leading candidates are mapped in
-  [Annex: GroupBy — the design space](groupby-design-space.md). Decision pending
-  discussion.
+- None right now.
 
 ## Roadmap (versioned phases)
 

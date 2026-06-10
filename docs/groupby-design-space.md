@@ -1,9 +1,10 @@
 # GroupBy: the design space
 
 Learning note. Context: `GroupBy` is the biggest remaining v0.1.0 piece and the
-heart of any dataframe engine — and its API and algorithm are **still an open
-decision**. This note maps the design space: five axes, mostly independent,
-each with a leading candidate. The conceptual frame for all of them is
+heart of any dataframe engine. This note maps the design space: five axes,
+mostly independent. The discussion settled on **the leading candidate of every
+axis** (recorded at the end), picking the most efficient eager design Go
+allows. The conceptual frame for all of them is
 **split-apply-combine**: split rows into groups by key, apply an aggregation
 per group, combine the results into a new (one-row-per-group) dataframe.
 
@@ -130,6 +131,19 @@ The factorize pattern solves this for free: group ids are assigned in
 the order the keys first showed up — deterministic and natural. (Sorting the
 result by key is then the caller's choice once `Sort` exists, exactly like
 SQL's "no ORDER BY, no promised order".)
+
+> **Decision: hash-based factorize, eager `GroupBy(...).Agg(specs...)`, SQL
+> null rule, first-appearance order.** Typed maps per dtype produce
+> `groupIDs []int` once; aggregations are map-free slice-indexed passes
+> (`sums[groupIDs[i]] += v` — ~1ns slice index vs ~20-50ns map lookup in the
+> hot loop). Agg specs are package-level constructors (`grizzly.Sum("price")`),
+> coexisting with the Dataframe methods of the same name. `GroupBy` is
+> variadic from day one; multi-column keys (iterative id combination) can land
+> later without breaking the API. A note on a rejected shape:
+> `Select(Sum(...)).GroupBy(...)` — SQL's *written* order — only works in a
+> declarative language with a planner; an eager API must follow *execution*
+> order (group, then aggregate), which is why pandas and polars read the same
+> way.
 
 ## The simple version
 

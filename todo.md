@@ -58,8 +58,12 @@ this is just the task view of it.
 - [x] `Select` — column projection and reorder, O(cols): shares the Column
       pointers (safe: columns are immutable after construction), duplicate
       and missing names error via NewDataframe revalidation
-- [ ] `GroupBy` ← next (needs its own design discussion: hash on what,
-      aggregations API, null keys)
+- [x] `GroupBy`: design decided — hash factorize (typed maps → `groupIDs []int`),
+      eager `GroupBy(...).Agg(specs...)`, null keys = one group, first-appearance
+      order. See [docs/groupby-design-space.md](docs/groupby-design-space.md)
+- [ ] `GroupBy`: implement ← next. Factorize per dtype, `GroupedDataframe`,
+      `Agg` with `Sum`/`Avg`/`Min`/`Max`/`Count` specs (single key column;
+      multi-key later via id combination)
 - [ ] `Select` (column projection)
 - [ ] `GroupBy` (+ aggregations over groups)
 - [ ] `Sort`
