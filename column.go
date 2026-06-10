@@ -30,12 +30,22 @@ type Column interface {
 	Len() int
 	// DType returns the column's data type.
 	DType() DType
+	// IsValid reports whether row i holds a value (true) or a null (false).
+	// It panics if i is out of range.
+	IsValid(i int) bool
+	// NullCount returns the number of null rows in the column.
+	NullCount() int
 }
 
 // Float64Column is a column of float64 values backed by a contiguous slice.
+//
+// Nulls are tracked by a validity bitmap (see bitmap.go): at null rows the
+// values slice holds a placeholder (0.0) that operations never read. A nil
+// bitmap means the column has no nulls.
 type Float64Column struct {
-	name   string
-	values []float64
+	name     string
+	values   []float64
+	validity []uint64
 }
 
 // NewFloat64Column returns a Float64Column with the given name and values.
@@ -55,10 +65,37 @@ func (c *Float64Column) Len() int { return len(c.values) }
 // DType returns Float64.
 func (c *Float64Column) DType() DType { return Float64 }
 
+// IsValid reports whether row i holds a value (true) or a null (false).
+// It panics if i is out of range.
+func (c *Float64Column) IsValid(i int) bool {
+	_ = c.values[i] // bounds check even when the bitmap is nil
+	return c.validity == nil || bitmapGet(c.validity, i)
+}
+
+// NullCount returns the number of null rows in the column.
+func (c *Float64Column) NullCount() int {
+	if c.validity == nil {
+		return 0
+	}
+	return c.Len() - bitmapCountSet(c.validity)
+}
+
+// Value returns the value at row i and whether it is valid (comma-ok):
+// ok is false when the row is null, and the returned value must then be
+// ignored. It panics if i is out of range.
+func (c *Float64Column) Value(i int) (float64, bool) {
+	return c.values[i], c.validity == nil || bitmapGet(c.validity, i)
+}
+
 // StringColumn is a column of string values backed by a contiguous slice.
+//
+// Nulls are tracked by a validity bitmap (see bitmap.go): at null rows the
+// values slice holds a placeholder ("") that operations never read. A nil
+// bitmap means the column has no nulls.
 type StringColumn struct {
-	name   string
-	values []string
+	name     string
+	values   []string
+	validity []uint64
 }
 
 // NewStringColumn returns a StringColumn with the given name and values.
@@ -77,3 +114,25 @@ func (c *StringColumn) Len() int { return len(c.values) }
 
 // DType returns String.
 func (c *StringColumn) DType() DType { return String }
+
+// IsValid reports whether row i holds a value (true) or a null (false).
+// It panics if i is out of range.
+func (c *StringColumn) IsValid(i int) bool {
+	_ = c.values[i] // bounds check even when the bitmap is nil
+	return c.validity == nil || bitmapGet(c.validity, i)
+}
+
+// NullCount returns the number of null rows in the column.
+func (c *StringColumn) NullCount() int {
+	if c.validity == nil {
+		return 0
+	}
+	return c.Len() - bitmapCountSet(c.validity)
+}
+
+// Value returns the value at row i and whether it is valid (comma-ok):
+// ok is false when the row is null, and the returned value must then be
+// ignored. It panics if i is out of range.
+func (c *StringColumn) Value(i int) (string, bool) {
+	return c.values[i], c.validity == nil || bitmapGet(c.validity, i)
+}
