@@ -20,10 +20,12 @@ Working checklist of the project. The living design document is
 
 ## Next up
 
-- [ ] **Nulls** ← next topic. Decide representation (validity mask: real bitmap vs
-      `[]bool`) and semantics (what do `Sum`/`mean`/comparisons do with nulls), then
-      implement across columns, loaders and `Info`. Groundwork:
-      [docs/null-handling.md](docs/null-handling.md)
+- [x] **Nulls: design decided** — real `[]uint64` bitmap (`nil` = no nulls), comma-ok
+      `Value(i) (T, bool)` API, always-nullable columns, SQL skip-null semantics.
+      See [docs/nulls-in-go.md](docs/nulls-in-go.md)
+- [ ] **Nulls: implement** ← current. Step by step: (1) bitmap + `Value` on columns,
+      (2) null-aware constructors, (3) loaders map empty CSV cells / JSON `null`s to
+      bit 0, (4) `Sum` skips nulls, (5) `Info` shows non-null counts
 
 ## Performance (seeded by the first benchmark — see
 [docs/first-benchmark-lessons.md](docs/first-benchmark-lessons.md))

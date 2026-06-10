@@ -27,7 +27,21 @@ and every value boxed on the heap — see [Annex: Stack vs Heap](stack-vs-heap.m
 The guiding principle: **the more the compiler knows at compile time (types, sizes,
 lifetimes), the faster the program** — typed columns are that principle applied.
 
-### 2. Explicit schema on load (decided)
+### 2. Nulls: validity bitmap, comma-ok API, SQL semantics (decided)
+
+Null handling rests on four independent decisions, all settled (the full design
+space and rationale live in [Annex: Nulls in Go](nulls-in-go.md)):
+
+- **Representation**: a real validity bitmap (`[]uint64`, 1 bit per row), Arrow-style;
+  `nil` bitmap means "no nulls" so null-free columns pay nothing.
+- **API**: comma-ok — `Value(i) (T, bool)` — as the public surface; operations
+  type-switch to the concrete column and read slice + bitmap directly in hot loops.
+- **Type architecture**: every column is nullable (no separate `Nullable*` types).
+- **Semantics**: SQL aggregate convention — `Sum`/`Mean`/`Count` skip nulls; loaders
+  turn empty CSV cells / JSON `null`s into bit 0 + placeholder. Three-valued logic
+  for comparisons is parked until `Filter` exists.
+
+### 3. Explicit schema on load (decided)
 
 When loading untyped sources (CSV, JSON), the **user declares the column types** via an
 explicit schema — like a database, unlike pandas. Rationale: zero ambiguity, no
@@ -41,10 +55,6 @@ Struct-based construction needs no schema: types come from the struct fields the
   implementations (`Float64Column`, `StringColumn`...) over a closed set of types
   (`float64`, `int64`, `string`, `bool`). Generics collapse into this anyway because a
   dataframe is heterogeneous at runtime.
-- **Null handling** — not designed yet. The problem and the three classic strategies
-  (sentinels, pointer slices, validity bitmap) are laid out in
-  [Annex: Nulls in a typed columnar store](null-handling.md); leading candidate is a
-  validity mask, with semantics (what does `Sum` do with nulls?) still to be decided.
 
 ## Annexes (learning notes)
 
@@ -58,7 +68,12 @@ Struct-based construction needs no schema: types come from the struct fields the
 - [Nulls in a typed columnar store](null-handling.md) — why `[]float64` has no "empty"
   state, and the three classic answers: sentinel values (old pandas' NaN scars),
   pointer slices (the heap disaster revisited), validity bitmaps (Arrow/Polars).
-  Groundwork for the null-handling open question.
+  Groundwork for the null-handling decision.
+- [Nulls in Go: the four design decisions](nulls-in-go.md) — the Go-specific design
+  space behind the null-handling decision: `[]bool` vs real `[]uint64` bitmap (bit
+  twiddling, popcount, the `nil` = no-nulls trick), comma-ok vs `Null[T]` vs two-method
+  APIs, always-nullable columns, and SQL skip-null semantics. Records all four
+  decisions.
 - [Lessons from the first benchmark](first-benchmark-lessons.md) — grizzly vs
   pandas/polars on 1M rows: beating pandas' C parser on CSV single-threaded, why
   polars' 0.032s needs parallel+SIMD, `FromJSON`'s map/boxing cost as the real weak
