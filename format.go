@@ -95,6 +95,9 @@ func cellString(c Column, i int) string {
 		return strconv.FormatFloat(c.values[i], 'g', -1, 64)
 	case *StringColumn:
 		return c.values[i]
+	case *BoolColumn:
+		// cellString already checked validity, so the bit is a real value.
+		return strconv.FormatBool(bitmapGet(c.values, i))
 	default:
 		return "?"
 	}
@@ -117,6 +120,10 @@ func colMemory(c Column) int {
 			mem += len(s)
 		}
 		return mem
+	case *BoolColumn:
+		// Both buffers are packed words: a 6-row column costs 8+8 bytes,
+		// a 1M-row one ~125 KB + 125 KB — the 8x win over []bool.
+		return 8*len(c.values) + 8*len(c.validity)
 	default:
 		return 0
 	}

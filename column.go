@@ -13,10 +13,13 @@ import (
 // safety wherever a function expects "a column type" rather than "any string".
 type DType string
 
-// The supported column data types.
+// The supported column data types. A deliberately closed set: float64 is
+// the only numeric type (integers load as float64, exact up to 2^53 — the
+// JSON model), plus string and bool.
 const (
 	Float64 DType = "float64"
 	String  DType = "string"
+	Bool    DType = "bool"
 )
 
 // Column is the contract every typed column satisfies.
@@ -108,6 +111,94 @@ func (c *Float64Column) NullCount() int {
 // ignored. It panics if i is out of range.
 func (c *Float64Column) Value(i int) (float64, bool) {
 	return c.values[i], c.validity == nil || bitmapGet(c.validity, i)
+}
+
+// BoolColumn is a column of bool values stored packed, Arrow-style: one
+// bit per row in bitmap words, not one byte per row — 8x smaller than a
+// []bool, and counting trues is a popcount away.
+//
+// Packing breaks the "1 slice element = 1 row" coincidence the other
+// columns enjoy: len(values) counts words (64 rows each), so the logical
+// row count needs its own length field, and bounds checks are written by
+// hand instead of falling out of slice indexing.
+//
+// Nulls are tracked by a validity bitmap like every other column: at null
+// rows the packed value bit is an arbitrary placeholder (0) that
+// operations never read. A nil bitmap means the column has no nulls.
+type BoolColumn struct {
+	name     string
+	length   int      // logical rows; len(values) is buffer words, not rows
+	values   []uint64 // bit i = row i's value
+	validity []uint64
+}
+
+// NewBoolColumn returns a BoolColumn with the given name and values,
+// packed to one bit per row. The input slice is only read during
+// construction; the column keeps no reference to it. The column has no
+// nulls; use NewBoolColumnWithNulls to mark some rows as null.
+func NewBoolColumn(name string, values []bool) *BoolColumn {
+	return &BoolColumn{name: name, length: len(values), values: packBools(values)}
+}
+
+// NewBoolColumnWithNulls returns a BoolColumn where valid[i] reports
+// whether values[i] is a real value (true) or a null (false). values and
+// valid must have the same length; otherwise an error is returned.
+//
+// Both slices are only read during construction (values are packed, the
+// mask is compacted — and dropped entirely when it contains no false
+// entries).
+func NewBoolColumnWithNulls(name string, values []bool, valid []bool) (*BoolColumn, error) {
+	if len(values) != len(valid) {
+		return nil, fmt.Errorf("column %q: %d values but %d validity entries",
+			name, len(values), len(valid))
+	}
+	return &BoolColumn{
+		name:     name,
+		length:   len(values),
+		values:   packBools(values),
+		validity: validityFromBools(valid),
+	}, nil
+}
+
+// Name returns the column's name.
+func (c *BoolColumn) Name() string { return c.name }
+
+// Len returns the number of values in the column.
+func (c *BoolColumn) Len() int { return c.length }
+
+// DType returns Bool.
+func (c *BoolColumn) DType() DType { return Bool }
+
+// checkBounds panics if row i does not exist, mirroring the panic slice
+// indexing produces in the unpacked columns — there, values[i] bounds-checks
+// rows for free; here values[i] would index words, so the check is manual.
+func (c *BoolColumn) checkBounds(i int) {
+	if i < 0 || i >= c.length {
+		panic(fmt.Sprintf("grizzly: row index %d out of range [0:%d]", i, c.length))
+	}
+}
+
+// IsValid reports whether row i holds a value (true) or a null (false).
+// It panics if i is out of range.
+func (c *BoolColumn) IsValid(i int) bool {
+	c.checkBounds(i)
+	return c.validity == nil || bitmapGet(c.validity, i)
+}
+
+// NullCount returns the number of null rows in the column.
+func (c *BoolColumn) NullCount() int {
+	if c.validity == nil {
+		return 0
+	}
+	return c.length - bitmapCountSet(c.validity)
+}
+
+// Value returns the value at row i and whether it is valid (comma-ok):
+// ok is false when the row is null, and the returned value must then be
+// ignored. It panics if i is out of range.
+func (c *BoolColumn) Value(i int) (bool, bool) {
+	c.checkBounds(i)
+	return bitmapGet(c.values, i), c.validity == nil || bitmapGet(c.validity, i)
 }
 
 // validValues returns an iterator over the column's valid (non-null)
