@@ -93,7 +93,7 @@ this is just the task view of it.
       float64/bool, documented asymmetry for strings; JSON literal nulls,
       token-level streaming, exact round-trip, rejects NaN/Inf. Round-trip
       tests + godoc examples
-- [ ] Tag `v0.1.0` (required to `go get` it from other repos)
+- [x] Tag `v0.1.0` — tagged and pushed 2026-06-10 🎉
 
 ## v0.2.0 — fast
 
