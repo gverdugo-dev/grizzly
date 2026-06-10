@@ -70,11 +70,7 @@ this is just the task view of it.
       cmp.Compare over row indices, generic cmpRows for float64/string),
       nulls first in both directions (polars' rule), columns reordered via
       gatherRows; original dataframe untouched
-- [ ] `Example`-based tests ← next (then the tag)
-- [ ] `Select` (column projection)
-- [ ] `GroupBy` (+ aggregations over groups)
-- [ ] `Sort`
-- [ ] `Example`-based tests covering the public API
+- [ ] `Example`-based tests covering the public API ← next
 - [ ] Tag `v0.1.0` (required to `go get` it from other repos)
 
 ## v0.2.0 — fast
