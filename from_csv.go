@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"slices"
-	"strconv"
 )
 
 // FromCSV builds a Dataframe from a CSV file with a header row. It opens
@@ -23,7 +22,7 @@ func FromCSV(path string, schema Schema) (Dataframe, error) {
 
 	// csv.Reader buffers internally, but feeding it from a bigger buffer
 	// cuts syscalls on large files.
-	df, err := FromCSVReader(bufio.NewReaderSize(f, 256<<10), schema)
+	df, err := FromCSVReader(bufio.NewReaderSize(f, readerBufSize), schema)
 	if err != nil {
 		return Dataframe{}, fmt.Errorf("FromCSV %s: %w", path, err)
 	}
@@ -65,77 +64,21 @@ func FromCSVReader(r io.Reader, schema Schema) (Dataframe, error) {
 		colIdx[name] = i
 	}
 
-	// One fill closure per schema field: parses its cell and appends to its
-	// typed slice. finish closures wrap the final slices into Columns once
-	// the row count is known. All type decisions happen here, outside the
-	// per-row loop.
-	fills := make([]func(record []string, line int) error, 0, len(schema))
-	finish := make([]func() (Column, error), 0, len(schema))
-	for _, field := range schema {
-		src, ok := colIdx[field.Name]
+	// One builder per schema field (see column_builder.go), plus the index
+	// of its source column in the stream. All type decisions happen here,
+	// outside the per-row loop.
+	builders := make([]columnBuilder, len(schema))
+	src := make([]int, len(schema))
+	for j, field := range schema {
+		i, ok := colIdx[field.Name]
 		if !ok {
 			return Dataframe{}, fmt.Errorf("%w: %q", ErrColumnNotFound, field.Name)
 		}
-		name := field.Name
-		switch field.Type {
-		case Float64:
-			var values []float64
-			var valid []bool
-			fills = append(fills, func(record []string, line int) error {
-				if record[src] == "" { // empty cell: placeholder value, validity bit 0
-					values = append(values, 0)
-					valid = append(valid, false)
-					return nil
-				}
-				v, err := strconv.ParseFloat(record[src], 64)
-				if err != nil {
-					return fmt.Errorf("line %d, column %q: %w", line, name, err)
-				}
-				values = append(values, v)
-				valid = append(valid, true)
-				return nil
-			})
-			finish = append(finish, func() (Column, error) {
-				return NewFloat64ColumnWithNulls(name, values, valid)
-			})
-		case String:
-			// Keeping record[src] is safe (csv.Reader allocates fresh string
-			// data per record even with ReuseRecord), but it pins the whole
-			// row's backing string in memory. Fast; revisit if string-heavy
-			// files show memory bloat.
-			var values []string
-			fills = append(fills, func(record []string, _ int) error {
-				values = append(values, record[src])
-				return nil
-			})
-			finish = append(finish, func() (Column, error) {
-				return NewStringColumn(name, values), nil
-			})
-		case Bool:
-			var values []bool
-			var valid []bool
-			fills = append(fills, func(record []string, line int) error {
-				if record[src] == "" { // empty cell: placeholder value, validity bit 0
-					values = append(values, false)
-					valid = append(valid, false)
-					return nil
-				}
-				// ParseBool accepts 1/0, t/f, true/false in any common casing.
-				v, err := strconv.ParseBool(record[src])
-				if err != nil {
-					return fmt.Errorf("line %d, column %q: %w", line, name, err)
-				}
-				values = append(values, v)
-				valid = append(valid, true)
-				return nil
-			})
-			finish = append(finish, func() (Column, error) {
-				return NewBoolColumnWithNulls(name, values, valid)
-			})
-		default:
-			return Dataframe{}, fmt.Errorf("unsupported dtype %q for column %q",
-				field.Type, field.Name)
+		b, err := newColumnBuilder(field)
+		if err != nil {
+			return Dataframe{}, err
 		}
+		builders[j], src[j] = b, i
 	}
 
 	// Stream the rows. Line numbers are 1-based and the header is line 1.
@@ -147,20 +90,16 @@ func FromCSVReader(r io.Reader, schema Schema) (Dataframe, error) {
 		if err != nil {
 			return Dataframe{}, err
 		}
-		for _, fill := range fills {
-			if err := fill(record, line); err != nil {
+		for j, b := range builders {
+			if err := b.appendCSV(record[src[j]], line); err != nil {
 				return Dataframe{}, err
 			}
 		}
 	}
 
-	cols := make([]Column, len(finish))
-	for i, fn := range finish {
-		col, err := fn()
-		if err != nil {
-			return Dataframe{}, err
-		}
-		cols[i] = col
+	cols, err := finishColumns(builders)
+	if err != nil {
+		return Dataframe{}, err
 	}
 	return NewDataframe(cols...)
 }

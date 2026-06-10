@@ -18,7 +18,7 @@ func FromJSON(path string, schema Schema) (Dataframe, error) {
 	}
 	defer f.Close()
 
-	df, err := FromJSONReader(bufio.NewReaderSize(f, 256<<10), schema)
+	df, err := FromJSONReader(bufio.NewReaderSize(f, readerBufSize), schema)
 	if err != nil {
 		return Dataframe{}, fmt.Errorf("FromJSON %s: %w", path, err)
 	}
@@ -44,86 +44,18 @@ func FromJSON(path string, schema Schema) (Dataframe, error) {
 func FromJSONReader(r io.Reader, schema Schema) (Dataframe, error) {
 	dec := json.NewDecoder(r)
 
-	// One fill closure per schema field: decodes the value at the decoder's
-	// cursor straight into that column's typed slice. finish closures wrap
-	// the final slices into Columns once all rows are read.
-	//
-	// Null detection relies on encoding/json's pointer rule: decoding into
-	// a **T sets the *T to nil on a JSON null, and otherwise writes through
-	// it into the value it already points at. Reusing one buffer + pointer
-	// per column keeps the hot loop allocation-free.
-	fills := make(map[string]func(row int) error, len(schema))
-	finish := make([]func() (Column, error), 0, len(schema))
-	for _, field := range schema {
-		name := field.Name
-		switch field.Type {
-		case Float64:
-			var values []float64
-			var valid []bool
-			var buf float64
-			fills[name] = func(row int) error {
-				ptr := &buf // re-arm: a previous null left a nil behind
-				if err := dec.Decode(&ptr); err != nil {
-					return fmt.Errorf("row %d, key %q: %w", row, name, err)
-				}
-				if ptr == nil { // JSON null: placeholder value, validity bit 0
-					values = append(values, 0)
-					valid = append(valid, false)
-					return nil
-				}
-				values = append(values, buf)
-				valid = append(valid, true)
-				return nil
-			}
-			finish = append(finish, func() (Column, error) {
-				return NewFloat64ColumnWithNulls(name, values, valid)
-			})
-		case String:
-			var values []string
-			var valid []bool
-			var buf string
-			fills[name] = func(row int) error {
-				ptr := &buf
-				if err := dec.Decode(&ptr); err != nil {
-					return fmt.Errorf("row %d, key %q: %w", row, name, err)
-				}
-				if ptr == nil {
-					values = append(values, "")
-					valid = append(valid, false)
-					return nil
-				}
-				values = append(values, buf)
-				valid = append(valid, true)
-				return nil
-			}
-			finish = append(finish, func() (Column, error) {
-				return NewStringColumnWithNulls(name, values, valid)
-			})
-		case Bool:
-			var values []bool
-			var valid []bool
-			var buf bool
-			fills[name] = func(row int) error {
-				ptr := &buf
-				if err := dec.Decode(&ptr); err != nil {
-					return fmt.Errorf("row %d, key %q: %w", row, name, err)
-				}
-				if ptr == nil {
-					values = append(values, false)
-					valid = append(valid, false)
-					return nil
-				}
-				values = append(values, buf)
-				valid = append(valid, true)
-				return nil
-			}
-			finish = append(finish, func() (Column, error) {
-				return NewBoolColumnWithNulls(name, values, valid)
-			})
-		default:
-			return Dataframe{}, fmt.Errorf("unsupported dtype %q for column %q",
-				field.Type, field.Name)
+	// One builder per schema field (see column_builder.go), reachable by
+	// key for the per-row loop and in schema order for the final build.
+	// All type decisions happen here, outside the per-row loop.
+	builders := make([]columnBuilder, len(schema))
+	byKey := make(map[string]columnBuilder, len(schema))
+	for j, field := range schema {
+		b, err := newColumnBuilder(field)
+		if err != nil {
+			return Dataframe{}, err
 		}
+		builders[j] = b
+		byKey[field.Name] = b
 	}
 
 	// Walk the tokens: '[' then one '{...}' per row.
@@ -142,7 +74,7 @@ func FromJSONReader(r io.Reader, schema Schema) (Dataframe, error) {
 				return Dataframe{}, fmt.Errorf("row %d: %w", row, err)
 			}
 			key, _ := keyTok.(string) // inside an object, keys are always strings
-			fill, ok := fills[key]
+			b, ok := byKey[key]
 			if !ok {
 				// Key not in the schema: skip its value (it may be nested,
 				// so let Decode consume it whole).
@@ -152,7 +84,7 @@ func FromJSONReader(r io.Reader, schema Schema) (Dataframe, error) {
 				}
 				continue
 			}
-			if err := fill(row); err != nil {
+			if err := b.appendJSON(dec, row); err != nil {
 				return Dataframe{}, err
 			}
 			filled++
@@ -169,13 +101,9 @@ func FromJSONReader(r io.Reader, schema Schema) (Dataframe, error) {
 		row++
 	}
 
-	cols := make([]Column, len(finish))
-	for i, fn := range finish {
-		col, err := fn()
-		if err != nil {
-			return Dataframe{}, err
-		}
-		cols[i] = col
+	cols, err := finishColumns(builders)
+	if err != nil {
+		return Dataframe{}, err
 	}
 	return NewDataframe(cols...)
 }
