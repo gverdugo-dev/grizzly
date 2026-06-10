@@ -1,7 +1,7 @@
-product,price,store
-apple,1.50,downtown
-banana,0.75,downtown
-cherry,3.20,uptown
-mango,2.10,uptown
-kiwi,,downtown
-lime,0.00,uptown
+product,price,store,in_stock
+apple,1.50,downtown,true
+banana,0.75,downtown,1
+cherry,3.20,uptown,false
+mango,2.10,uptown,TRUE
+kiwi,,downtown,
+lime,0.00,uptown,0

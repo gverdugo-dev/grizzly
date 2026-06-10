@@ -1,8 +1,8 @@
 [
-  {"product": "apple", "price": 1.5, "store": "downtown"},
-  {"product": "banana", "price": 0.75, "store": "downtown"},
-  {"product": "cherry", "price": 3.2, "store": "uptown"},
-  {"product": "mango", "price": 2.1, "store": "uptown"},
-  {"product": "kiwi", "price": null, "store": "downtown"},
-  {"product": null, "price": 0.0, "store": "uptown"}
+  {"product": "apple", "price": 1.5, "store": "downtown", "in_stock": true},
+  {"product": "banana", "price": 0.75, "store": "downtown", "in_stock": true},
+  {"product": "cherry", "price": 3.2, "store": "uptown", "in_stock": false},
+  {"product": "mango", "price": 2.1, "store": "uptown", "in_stock": true},
+  {"product": "kiwi", "price": null, "store": "downtown", "in_stock": null},
+  {"product": null, "price": 0.0, "store": "uptown", "in_stock": false}
 ]

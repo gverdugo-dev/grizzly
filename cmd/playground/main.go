@@ -20,11 +20,12 @@ func main() {
 	type Sale struct {
 		Product string  `grizzly:"product"`
 		Price   float64 `grizzly:"price"`
+		InStock bool    `grizzly:"in_stock"`
 	}
 	df, err := grizzly.FromStructs([]Sale{
-		{Product: "apple", Price: 1.50},
-		{Product: "banana", Price: 0.75},
-		{Product: "cherry", Price: 3.20},
+		{Product: "apple", Price: 1.50, InStock: true},
+		{Product: "banana", Price: 0.75, InStock: false},
+		{Product: "cherry", Price: 3.20, InStock: true},
 	})
 	if err != nil {
 		logger.Error("building dataframe", "err", err)
@@ -52,6 +53,7 @@ func main() {
 		{Name: "store", Type: grizzly.String},
 		{Name: "product", Type: grizzly.String},
 		{Name: "price", Type: grizzly.Float64},
+		{Name: "in_stock", Type: grizzly.Bool},
 	}
 
 	// The CSV has an empty price cell (kiwi → null) and a real 0.00 (lime):
