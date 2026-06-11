@@ -100,7 +100,7 @@ the opposite of WHERE); output rows come in first-appearance order
 Versions follow semver with git tags. `v0.x` means the API can still change
 freely between minors. [todo.md](../todo.md) is the task-level view of this.
 
-### v0.1.0 — load, look, ask (in progress)
+### v0.1.0 — load, look, ask (done — tagged 2026-06-10)
 
 One table end-to-end: load real data, inspect it, query and transform it.
 
@@ -113,14 +113,17 @@ One table end-to-end: load real data, inspect it, query and transform it.
   the public API, clean-code audit (healthy), `columnBuilder` refactor
   (per-dtype loading knowledge in one place), custom log handler removed
   (stdlib `log/slog` only).
-- Pending: the tag.
 
-### v0.2.0 — fast
+### v0.2.0 — fast (in progress)
 
-Performance, guided by profiling, not guessing (see
-[Annex: Lessons from the first benchmark](first-benchmark-lessons.md)):
-pprof the loaders, parallelize parsing by chunks, re-benchmark against
-pandas/polars.
+Performance, guided by profiling, not guessing. Principles and planned
+improvements per area (load, processing, write) are recorded in
+[Annex: v0.2.0 performance principles](v0.2.0-principles.md); the telemetry
+that seeded them lives in
+[Annex: Lessons from the first benchmark](first-benchmark-lessons.md).
+Headlines: pprof the loaders, parallelize CSV parsing by chunks,
+benchmark processing and writing before touching them, re-benchmark
+against pandas/polars.
 
 ### v0.3.0 — relational
 
@@ -163,3 +166,9 @@ pandas/polars.
   polars' 0.032s needs parallel+SIMD, `FromJSON`'s map/boxing cost as the real weak
   point, and float summation order explaining the checksum mismatch. Seeds the
   performance roadmap in todo.md.
+- [v0.2.0 performance principles](v0.2.0-principles.md) — the rules of the "fast"
+  phase: measure before touching, fast sequential before parallel, parallelism at
+  the boundaries (CPU-bound parsing) not in the kernels (memory-bound), semantics
+  intact, stdlib only, API stable. Plus the planned improvements per area and the
+  new Go vocabulary (goroutines, WaitGroup, channels, pprof, benchstat). Underpins
+  the v0.2.0 roadmap entry.
