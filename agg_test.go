@@ -7,6 +7,9 @@ package grizzly_test
 
 import (
 	"errors"
+	"math"
+	"math/big"
+	"math/rand/v2"
 	"testing"
 
 	"github.com/gverdugo-dev/grizzly"
@@ -101,6 +104,86 @@ func TestAggTypeMismatch(t *testing.T) {
 
 	if got, err := df.Count("city"); err != nil || got != 4 {
 		t.Errorf("Count(city) = (%v, %v), want (4, nil): Count is type-agnostic", got, err)
+	}
+}
+
+// exactSum computes the reference sum at 200-bit precision (math/big):
+// effectively exact for any realistic float64 input, so a summation
+// algorithm's error can be measured against it.
+func exactSum(values []float64, valid func(int) bool) float64 {
+	acc := new(big.Float).SetPrec(200)
+	for i, v := range values {
+		if valid == nil || valid(i) {
+			acc.Add(acc, big.NewFloat(v))
+		}
+	}
+	out, _ := acc.Float64()
+	return out
+}
+
+// TestSumPairwiseAccuracy pins Sum's accuracy claim: over a large random
+// column, the pairwise sum must land closer to the exact (200-bit)
+// reference than a naive sequential loop — O(ε·log n) vs O(ε·n) error
+// growth, the difference behind the benchmark checksum mismatch.
+func TestSumPairwiseAccuracy(t *testing.T) {
+	rng := rand.New(rand.NewPCG(7, 9))
+	values := make([]float64, 500_000)
+	for i := range values {
+		values[i] = rng.Float64() * 1000
+	}
+	want := exactSum(values, nil)
+	var seq float64
+	for _, v := range values {
+		seq += v
+	}
+
+	df, err := grizzly.NewDataframe(grizzly.NewFloat64Column("x", values))
+	if err != nil {
+		t.Fatalf("building dataframe: %v", err)
+	}
+	got, err := df.Sum("x")
+	if err != nil {
+		t.Fatalf("Sum: %v", err)
+	}
+
+	pairErr, seqErr := math.Abs(got-want), math.Abs(seq-want)
+	if pairErr > seqErr {
+		t.Errorf("pairwise error %g exceeds sequential error %g", pairErr, seqErr)
+	}
+	if rel := pairErr / math.Abs(want); rel > 1e-12 {
+		t.Errorf("pairwise relative error %g, want <= 1e-12", rel)
+	}
+	t.Logf("exact %.6f · pairwise off by %g · sequential off by %g", want, pairErr, seqErr)
+}
+
+// TestSumPairwiseSkipsNulls verifies the bitmap is honored across leaf
+// and recursive levels alike: a large column with nulls sprinkled in
+// must sum to (exactly, within a few ulps) the sum of its valid values.
+func TestSumPairwiseSkipsNulls(t *testing.T) {
+	rng := rand.New(rand.NewPCG(11, 13))
+	n := 100_000
+	values := make([]float64, n)
+	valid := make([]bool, n)
+	for i := range values {
+		values[i] = rng.Float64() * 100
+		valid[i] = i%3 != 0 // every third row is null
+	}
+	col, err := grizzly.NewFloat64ColumnWithNulls("x", values, valid)
+	if err != nil {
+		t.Fatalf("building column: %v", err)
+	}
+	df, err := grizzly.NewDataframe(col)
+	if err != nil {
+		t.Fatalf("building dataframe: %v", err)
+	}
+
+	got, err := df.Sum("x")
+	if err != nil {
+		t.Fatalf("Sum: %v", err)
+	}
+	want := exactSum(values, func(i int) bool { return valid[i] })
+	if rel := math.Abs(got-want) / math.Abs(want); rel > 1e-12 {
+		t.Errorf("Sum with nulls off by relative %g, want <= 1e-12", rel)
 	}
 }
 

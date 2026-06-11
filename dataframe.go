@@ -106,6 +106,12 @@ func (d Dataframe) Select(names ...string) (Dataframe, error) {
 // Null rows are skipped (SQL aggregate semantics): the sum of the valid
 // values is returned, and an all-null column sums to 0.
 //
+// The summation is pairwise (recursive halving with sequential leaves),
+// so the floating-point rounding error grows O(ε·log n) instead of the
+// naive loop's O(ε·n) — the same algorithm NumPy uses, and the reason
+// pandas/polars agreed with each other (and not with grizzly's old
+// sequential loop) on the benchmark checksum's last decimals.
+//
 // It returns ErrColumnNotFound if the column does not exist, and
 // ErrTypeMismatch if the column is not numeric.
 func (d Dataframe) Sum(name string) (float64, error) {
@@ -113,19 +119,52 @@ func (d Dataframe) Sum(name string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	// Type-switch to reach the concrete column: validValues ranges over the
+	// Type-switch to reach the concrete column: pairwiseSum reads the
 	// contiguous typed slice (skipping null rows via the bitmap) with no
 	// interface indirection per value.
 	switch c := col.(type) {
 	case *Float64Column:
-		var sum float64
-		for v := range c.validValues() {
-			sum += v
-		}
-		return sum, nil
+		return pairwiseSum(c.values, c.validity, 0, len(c.values)), nil
 	default:
 		return 0, fmt.Errorf("%w: cannot sum %s column %q", ErrTypeMismatch, col.DType(), name)
 	}
+}
+
+// pairwiseSumLeaf is the range size below which pairwiseSum stops
+// splitting and sums sequentially. Within a leaf the sequential error is
+// negligible, and a tight loop is what the hardware wants; 128 is the
+// standard choice (NumPy's, among others).
+const pairwiseSumLeaf = 128
+
+// pairwiseSum sums values[lo:hi], skipping rows whose validity bit is 0
+// (a nil bitmap means all rows are valid), by recursive halving.
+//
+// Why the order matters: float64 addition is not associative — each
+// addition rounds to 53 bits, and a long sequential chain accumulates
+// O(ε·n) of that rounding. Splitting the range in halves and summing the
+// halves independently makes the error tree-shaped, O(ε·log n): for 1M
+// values, the difference shows up in the last decimals (it explained the
+// grizzly-vs-pandas/polars checksum mismatch in the first benchmark).
+// The tree shape is also what would make this parallelizable, if Sum
+// ever became a bottleneck — it is memory-bound today.
+func pairwiseSum(values []float64, validity []uint64, lo, hi int) float64 {
+	if hi-lo <= pairwiseSumLeaf {
+		var sum float64
+		if validity == nil {
+			for _, v := range values[lo:hi] {
+				sum += v
+			}
+		} else {
+			for i := lo; i < hi; i++ {
+				if bitmapGet(validity, i) {
+					sum += values[i]
+				}
+			}
+		}
+		return sum
+	}
+	mid := lo + (hi-lo)/2
+	return pairwiseSum(values, validity, lo, mid) + pairwiseSum(values, validity, mid, hi)
 }
 
 // Count returns the number of valid (non-null) rows in the column with the
