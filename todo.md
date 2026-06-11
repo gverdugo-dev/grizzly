@@ -97,8 +97,46 @@ this is just the task view of it.
 
 ## v0.2.0 — fast
 
-- [ ] Profile the JSON path with pprof (expect remaining cost in Decode calls)
-- [ ] Parallelize parsing by chunks; re-measure the gap to polars
+Principles and rationale in [docs/v0.2.0-principles.md](docs/v0.2.0-principles.md):
+measure first, fast sequential before parallel, parallelism at the boundaries.
+
+- [x] In-repo benchmarks (`go test -bench` + benchstat baseline): loaders,
+      writers, and kernels (`Sum`, `Where`, `GroupBy`, `Sort`) over a shared
+      deterministic dataset (`bench_test.go`, 100k rows, seeded PCG); baseline
+      in `reports/bench-baseline-v0.1.0.txt`. Findings: JSON load 203ms /
+      4.9M allocs (the monster), CSV write ~2 allocs/row (`FormatFloat`),
+      JSON write ~2 allocs/row (`json.Marshal` per string cell), `Sort` 31ms
+      with 17 allocs (algorithmic, not allocation), kernels healthy
+      (`Sum` = 0 allocs)
+- [x] Profile the JSON path with pprof — found: ~36% of CPU and ~43% of
+      allocations are encoding/json building *discarded* internal error
+      values (`scanner.error` → `quoteChar`/`concatstrings`) every time a
+      per-cell `Decode` scans for its value's end
+- [x] ~~Token-per-value experiment~~ — falsified by benchstat: `dec.Token()`
+      shares the same `readValue` machinery AND boxes every value into an
+      interface → +11% time, +10% allocs. Reverted. Lesson recorded: the
+      profile says where it hurts, only the after-benchmark says the cure
+      works. Sequential JSON is at the stdlib's ceiling until json/v2
+      graduates (still GOEXPERIMENT in Go 1.26)
+- [ ] Optimize sequential JSON load — options: hand-rolled flat-object
+      scanner over per-row `json.RawMessage` (1 Decode/row instead of 4),
+      or wait for json/v2; design discussion pending
+- [ ] Writers: benchmark, then `strconv.Append*` into reused buffers instead
+      of `fmt` where the profile agrees
+- [ ] Pairwise summation in `Sum`/`Avg` (accuracy win; explains the benchmark
+      checksum mismatch)
+- [x] Parallelize CSV parsing by chunks (`from_csv_parallel.go`): quote-parity
+      boundary scan (IndexByte hopping, embedded newlines in quoted fields
+      handled correctly), one goroutine + own builders per chunk
+      (`sync.WaitGroup.Go`, index-addressed results, no locks), builder-level
+      merge with `slices.Grow`, pre-sized builders via per-chunk newline
+      counts. `FromCSV` reads the file into memory and parallelizes when
+      ≥1MiB; `FromCSVReader` stays streaming-sequential. Equivalence,
+      balance, error-parity and `-race` tested. **18.97ms → 5.48ms (3.4x)**
+      on the 100k-row benchmark. War story recorded: the first splitter
+      passed every correctness test while producing a 10%/90% split — only
+      a chunk-*balance* test caught it
+- [ ] Re-run the external benchmark vs pandas/polars; record the new gap
 
 ## v0.3.0 — relational
 

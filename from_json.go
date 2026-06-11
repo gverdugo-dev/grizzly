@@ -50,7 +50,7 @@ func FromJSONReader(r io.Reader, schema Schema) (Dataframe, error) {
 	builders := make([]columnBuilder, len(schema))
 	byKey := make(map[string]columnBuilder, len(schema))
 	for j, field := range schema {
-		b, err := newColumnBuilder(field)
+		b, err := newColumnBuilder(field, 0) // streaming: row count unknown
 		if err != nil {
 			return Dataframe{}, err
 		}

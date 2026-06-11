@@ -43,14 +43,31 @@ type columnBuilder interface {
 
 // newColumnBuilder returns the builder for a schema field — the single
 // place that maps a DType to its loading behavior.
-func newColumnBuilder(f Field) (columnBuilder, error) {
+//
+// capHint pre-sizes the value and validity slices when the caller can
+// estimate the row count (the parallel CSV path counts each chunk's
+// newlines); pass 0 when streaming with no idea (append grows them as
+// usual, amortized but with realloc+copy along the way).
+func newColumnBuilder(f Field, capHint int) (columnBuilder, error) {
 	switch f.Type {
 	case Float64:
-		return &float64Builder{name: f.Name}, nil
+		return &float64Builder{
+			name:   f.Name,
+			values: make([]float64, 0, capHint),
+			valid:  make([]bool, 0, capHint),
+		}, nil
 	case String:
-		return &stringBuilder{name: f.Name}, nil
+		return &stringBuilder{
+			name:   f.Name,
+			values: make([]string, 0, capHint),
+			valid:  make([]bool, 0, capHint),
+		}, nil
 	case Bool:
-		return &boolBuilder{name: f.Name}, nil
+		return &boolBuilder{
+			name:   f.Name,
+			values: make([]bool, 0, capHint),
+			valid:  make([]bool, 0, capHint),
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported dtype %q for column %q", f.Type, f.Name)
 	}

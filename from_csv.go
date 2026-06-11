@@ -1,7 +1,6 @@
 package grizzly
 
 import (
-	"bufio"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -10,19 +9,22 @@ import (
 	"slices"
 )
 
-// FromCSV builds a Dataframe from a CSV file with a header row. It opens
-// the file and delegates to FromCSVReader; see that function for the
-// format, schema and null rules.
+// FromCSV builds a Dataframe from a CSV file with a header row. See
+// FromCSVReader for the format, schema and null rules — both paths load
+// identical dataframes.
+//
+// Unlike FromCSVReader, it reads the whole file into memory and, when the
+// file is big enough, parses it in parallel by chunks (see
+// from_csv_parallel.go): a file path offers random access, which is what
+// makes splitting into byte ranges possible. Use FromCSVReader when
+// streaming matters more than speed.
 func FromCSV(path string, schema Schema) (Dataframe, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return Dataframe{}, fmt.Errorf("FromCSV: %w", err)
 	}
-	defer f.Close()
 
-	// csv.Reader buffers internally, but feeding it from a bigger buffer
-	// cuts syscalls on large files.
-	df, err := FromCSVReader(bufio.NewReaderSize(f, readerBufSize), schema)
+	df, err := fromCSVBytes(data, schema)
 	if err != nil {
 		return Dataframe{}, fmt.Errorf("FromCSV %s: %w", path, err)
 	}
@@ -74,7 +76,7 @@ func FromCSVReader(r io.Reader, schema Schema) (Dataframe, error) {
 		if !ok {
 			return Dataframe{}, fmt.Errorf("%w: %q", ErrColumnNotFound, field.Name)
 		}
-		b, err := newColumnBuilder(field)
+		b, err := newColumnBuilder(field, 0) // streaming: row count unknown
 		if err != nil {
 			return Dataframe{}, err
 		}
