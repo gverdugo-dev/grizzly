@@ -156,7 +156,15 @@ measure first, fast sequential before parallel, parallelism at the boundaries.
       on the 100k-row benchmark. War story recorded: the first splitter
       passed every correctness test while producing a 10%/90% split — only
       a chunk-*balance* test caught it
-- [ ] Re-run the external benchmark vs pandas/polars; record the new gap
+- [x] Re-run the external benchmark (1M rows, same machine, same checksum
+      `499828455.03102165`): CSV 0.54s → **0.15s** (vs polars 0.032s,
+      pandas 0.60s), JSON 3.46s → **0.37s** — **faster than polars'
+      0.75s and pandas' 1.67s: best JSON load on the table**. Caveat:
+      pandas/polars numbers are from the 2026-06-09 run; re-run all three
+      together before publishing any comparison. Bonus lesson: `go get
+      @main` resolves through proxy.golang.org's cache — the first re-run
+      silently measured yesterday's commit (`GOPROXY=direct` + explicit
+      commit hash fixes it; always check the pseudo-version in go.mod)
 
 ## v0.3.0 — relational
 
