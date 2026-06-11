@@ -6,7 +6,10 @@ package grizzly_test
 // deliberate asymmetry (a null string through CSV).
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -144,6 +147,113 @@ func TestCSVRoundTrip(t *testing.T) {
 	// Quoting survived the trip.
 	if v, _ := sc.Value(1); v != "with \"quotes\", and commas" {
 		t.Errorf("city[1] = %q: CSV quoting did not round-trip", v)
+	}
+}
+
+// trickyStrings stresses every quoting/escaping decision a writer makes:
+// commas, quotes, line breaks, leading/trailing whitespace, the `\.`
+// PostgreSQL special case, empties, non-ASCII and HTML-escaped bytes.
+var trickyStrings = []string{
+	"plain",
+	"with,comma",
+	`say "hi" twice`,
+	"line\nbreak",
+	"cr\rreturn",
+	" leading space",
+	"trailing space ",
+	"\ttab first",
+	`\.`,
+	"",
+	"ütf-8 é € 😀",
+	"html <b>&amp;</b>",
+	"backslash \\ inside",
+}
+
+// trickyWritersFixture pairs every tricky string with a float and a bool.
+func trickyWritersFixture(t *testing.T) grizzly.Dataframe {
+	t.Helper()
+	n := len(trickyStrings)
+	floats := make([]float64, n)
+	bools := make([]bool, n)
+	for i := range n {
+		floats[i] = float64(i) * 1.25
+		bools[i] = i%2 == 0
+	}
+	df, err := grizzly.NewDataframe(
+		grizzly.NewFloat64Column("f", floats),
+		grizzly.NewStringColumn("s", trickyStrings),
+		grizzly.NewBoolColumn("b", bools),
+	)
+	if err != nil {
+		t.Fatalf("building dataframe: %v", err)
+	}
+	return df
+}
+
+// TestToCSVWriterMatchesStdlib pins the hand-rolled CSV writer to
+// encoding/csv's exact output: same records through csv.Writer must
+// produce byte-identical text. This is the writer-side oracle — the
+// hand-rolled fast path is only allowed to be faster, never different.
+func TestToCSVWriterMatchesStdlib(t *testing.T) {
+	df := trickyWritersFixture(t)
+
+	var got strings.Builder
+	if err := df.ToCSVWriter(&got); err != nil {
+		t.Fatalf("ToCSVWriter: %v", err)
+	}
+
+	// The oracle: the same cells rendered through encoding/csv, exactly
+	// like the previous implementation did.
+	var want strings.Builder
+	cw := csv.NewWriter(&want)
+	cw.Write([]string{"f", "s", "b"})
+	for i, s := range trickyStrings {
+		cw.Write([]string{
+			strconv.FormatFloat(float64(i)*1.25, 'g', -1, 64),
+			s,
+			strconv.FormatBool(i%2 == 0),
+		})
+	}
+	cw.Flush()
+	if err := cw.Error(); err != nil {
+		t.Fatalf("building oracle output: %v", err)
+	}
+
+	if got.String() != want.String() {
+		t.Errorf("output differs from encoding/csv:\ngot:\n%s\nwant:\n%s",
+			got.String(), want.String())
+	}
+}
+
+// TestToJSONWriterMatchesMarshal pins the string fast path to
+// json.Marshal's exact output, HTML escaping included.
+func TestToJSONWriterMatchesMarshal(t *testing.T) {
+	df := trickyWritersFixture(t)
+
+	var got strings.Builder
+	if err := df.ToJSONWriter(&got); err != nil {
+		t.Fatalf("ToJSONWriter: %v", err)
+	}
+
+	var want strings.Builder
+	want.WriteByte('[')
+	for i, s := range trickyStrings {
+		if i > 0 {
+			want.WriteByte(',')
+		}
+		f := strconv.FormatFloat(float64(i)*1.25, 'g', -1, 64)
+		marshaled, err := json.Marshal(s)
+		if err != nil {
+			t.Fatalf("building oracle output: %v", err)
+		}
+		want.WriteString(`{"f":` + f + `,"s":` + string(marshaled) +
+			`,"b":` + strconv.FormatBool(i%2 == 0) + `}`)
+	}
+	want.WriteByte(']')
+
+	if got.String() != want.String() {
+		t.Errorf("output differs from json.Marshal oracle:\ngot:\n%s\nwant:\n%s",
+			got.String(), want.String())
 	}
 }
 

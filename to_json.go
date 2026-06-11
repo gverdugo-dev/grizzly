@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"unicode/utf8"
 )
 
 // ToJSON writes the dataframe to a JSON file as an array of objects,
@@ -89,11 +90,9 @@ func (d Dataframe) ToJSONWriter(w io.Writer) error {
 				scratch = strconv.AppendFloat(scratch[:0], v, 'g', -1, 64)
 				bw.Write(scratch)
 			case *StringColumn:
-				s, err := json.Marshal(c.values[i])
-				if err != nil {
+				if err := writeJSONString(bw, c.values[i]); err != nil {
 					return fmt.Errorf("ToJSONWriter: column %q row %d: %w", c.name, i, err)
 				}
-				bw.Write(s)
 			case *BoolColumn:
 				if bitmapGet(c.values, i) {
 					bw.WriteString("true")
@@ -112,4 +111,31 @@ func (d Dataframe) ToJSONWriter(w io.Writer) error {
 	// The WriteByte/WriteString calls above never fail directly — a
 	// bufio.Writer remembers its first error and reports it here.
 	return bw.Flush()
+}
+
+// writeJSONString writes s as a JSON string. Fast path: when every byte
+// is plain printable ASCII with nothing to escape — the overwhelmingly
+// common case in tabular data — the bytes go straight out between two
+// quotes, no allocation (json.Marshal cost ~2 allocations per cell: the
+// writer benchmark's whole count). Everything else falls back to
+// json.Marshal: quotes, backslashes, control bytes, non-ASCII, and also
+// '<', '>', '&', which Marshal HTML-escapes — keeping them on the slow
+// path keeps the output byte-for-byte what it was before the fast path.
+func writeJSONString(bw *bufio.Writer, s string) error {
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c < 0x20 || c >= utf8.RuneSelf,
+			c == '"', c == '\\', c == '<', c == '>', c == '&':
+			b, err := json.Marshal(s)
+			if err != nil {
+				return err
+			}
+			bw.Write(b)
+			return nil
+		}
+	}
+	bw.WriteByte('"')
+	bw.WriteString(s)
+	bw.WriteByte('"')
+	return nil
 }

@@ -1,10 +1,14 @@
 package grizzly
 
 import (
-	"encoding/csv"
+	"bufio"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // ToCSV writes the dataframe to a CSV file with a header row, creating or
@@ -38,37 +42,103 @@ func (d Dataframe) ToCSV(path string) error {
 // FromCSVReader), so a null string written by ToCSVWriter comes back as
 // a valid empty string. Use ToJSONWriter when exact null round-trips
 // matter; a configurable null marker may be added later.
+//
+// Like ToJSONWriter, it writes bytes straight into a buffered writer
+// instead of going through encoding/csv: csv.Writer only accepts
+// []string records, which forced one string allocation per numeric cell
+// (strconv.FormatFloat — the writer benchmark's whole allocation count).
+// Here floats render via strconv.AppendFloat into one reused scratch
+// buffer. Quoting follows encoding/csv's exact rules (see
+// csvFieldNeedsQuotes), so the output is byte-for-byte what the previous
+// implementation produced.
 func (d Dataframe) ToCSVWriter(w io.Writer) error {
-	cw := csv.NewWriter(w)
+	bw := bufio.NewWriterSize(w, readerBufSize)
 
-	header := make([]string, d.NumCols())
 	for j, c := range d.cols {
-		header[j] = c.Name()
+		if j > 0 {
+			bw.WriteByte(',')
+		}
+		writeCSVField(bw, c.Name())
 	}
-	if err := cw.Write(header); err != nil {
-		return err
-	}
+	bw.WriteByte('\n')
 
-	// One record slice reused across rows — the writing twin of the
-	// reader's ReuseRecord.
-	record := make([]string, d.NumCols())
+	// scratch holds each rendered number; reused across cells so the hot
+	// loop does not allocate per value.
+	var scratch []byte
 	for i := 0; i < d.NumRows(); i++ {
 		for j, c := range d.cols {
-			if !c.IsValid(i) {
-				record[j] = "" // null: empty cell
-				continue
+			if j > 0 {
+				bw.WriteByte(',')
 			}
-			// cellString is the package's single point of value rendering
-			// (format.go); its float format ('g', -1) round-trips exactly.
-			record[j] = cellString(c, i)
+			if !c.IsValid(i) {
+				continue // null: empty cell
+			}
+			switch c := c.(type) {
+			case *Float64Column:
+				// 'g' with precision -1: shortest form that round-trips.
+				// Never needs quoting: digits, sign, '.', 'e' only.
+				scratch = strconv.AppendFloat(scratch[:0], c.values[i], 'g', -1, 64)
+				bw.Write(scratch)
+			case *StringColumn:
+				writeCSVField(bw, c.values[i])
+			case *BoolColumn:
+				if bitmapGet(c.values, i) {
+					bw.WriteString("true")
+				} else {
+					bw.WriteString("false")
+				}
+			default:
+				return fmt.Errorf("%w: ToCSVWriter over unsupported column %q",
+					ErrTypeMismatch, c.Name())
+			}
 		}
-		if err := cw.Write(record); err != nil {
-			return err
-		}
+		bw.WriteByte('\n')
 	}
 
-	// csv.Writer buffers internally: Flush pushes everything to w, and
-	// Error reports any write error swallowed along the way.
-	cw.Flush()
-	return cw.Error()
+	// The Write* calls above never fail directly — a bufio.Writer
+	// remembers its first error and reports it here.
+	return bw.Flush()
+}
+
+// csvFieldNeedsQuotes mirrors encoding/csv's quoting decision exactly
+// (for Comma == ','): quotes are needed when the field contains a comma,
+// a quote or a line break, when it starts with a space (any Unicode
+// space), or when it is `\.` — a special case so the output stays usable
+// as PostgreSQL COPY input, inherited from the stdlib for byte-for-byte
+// compatibility.
+func csvFieldNeedsQuotes(field string) bool {
+	if field == "" {
+		return false
+	}
+	if field == `\.` {
+		return true
+	}
+	if strings.ContainsAny(field, ",\"\r\n") {
+		return true
+	}
+	r, _ := utf8.DecodeRuneInString(field)
+	return unicode.IsSpace(r)
+}
+
+// writeCSVField writes one string field, quoted only when the format
+// demands it, with inner quotes doubled ("" — RFC 4180). Bytes other
+// than the quote pass through untouched, exactly like encoding/csv with
+// UseCRLF=false.
+func writeCSVField(bw *bufio.Writer, field string) {
+	if !csvFieldNeedsQuotes(field) {
+		bw.WriteString(field)
+		return
+	}
+	bw.WriteByte('"')
+	for {
+		i := strings.IndexByte(field, '"')
+		if i < 0 {
+			bw.WriteString(field)
+			break
+		}
+		bw.WriteString(field[:i+1])
+		bw.WriteByte('"') // double the quote
+		field = field[i+1:]
+	}
+	bw.WriteByte('"')
 }

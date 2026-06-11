@@ -141,8 +141,18 @@ measure first, fast sequential before parallel, parallelism at the boundaries.
       byte loop — JSON's between-string segments are tiny and per-call
       overhead dominated. **24.7ms → 12.6ms (2x over B1; 16.3x total over
       v0.1.0's 206ms)** on the 100k-row benchmark
-- [ ] Writers: benchmark, then `strconv.Append*` into reused buffers instead
-      of `fmt` where the profile agrees
+- [x] Writers: `ToCSVWriter` rewritten byte-level like `ToJSONWriter`
+      (encoding/csv only accepts []string records — one FormatFloat
+      allocation per numeric cell): `AppendFloat` into reused scratch,
+      hand quoting mirroring encoding/csv's exact rules (incl. leading
+      Unicode space and the `\.` PostgreSQL case). `ToJSONWriter` got a
+      string fast path (plain printable ASCII straight out; quotes,
+      escapes, non-ASCII and HTML `<>&` fall back to `json.Marshal`).
+      Byte-for-byte output compatibility pinned by oracle tests against
+      encoding/csv and json.Marshal over a tricky-strings battery.
+      **CSV 15.5 → 12.3ms, 194,909 → 2 allocs; JSON 20.5 → 13.3ms,
+      200,011 → 11 allocs.** Lesson: allocs dropped ~100%, time only
+      ~25% — float formatting (CPU), not allocation, dominates writing
 - [ ] Pairwise summation in `Sum`/`Avg` (accuracy win; explains the benchmark
       checksum mismatch)
 - [x] Parallelize CSV parsing by chunks (`from_csv_parallel.go`): quote-parity
