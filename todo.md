@@ -153,8 +153,14 @@ measure first, fast sequential before parallel, parallelism at the boundaries.
       **CSV 15.5 → 12.3ms, 194,909 → 2 allocs; JSON 20.5 → 13.3ms,
       200,011 → 11 allocs.** Lesson: allocs dropped ~100%, time only
       ~25% — float formatting (CPU), not allocation, dominates writing
-- [ ] Pairwise summation in `Sum`/`Avg` (accuracy win; explains the benchmark
-      checksum mismatch)
+- [x] Pairwise summation in `Sum`/`Avg` — recursive halving with 128-element
+      sequential leaves (NumPy's design): error O(ε·log n) vs O(ε·n), and
+      21% *faster* (leaf loops beat the validValues iterator; still 0
+      allocs). Accuracy pinned against a 200-bit math/big reference (exact
+      on 500k values where sequential drifts 3e-6); external checksum now
+      matches pandas/polars (`499828455.03099`) — closing the mismatch
+      documented in the first benchmark's lesson 4
+- [x] Tag `v0.2.0` — tagged and pushed 2026-06-11 🎉
 - [x] Parallelize CSV parsing by chunks (`from_csv_parallel.go`): quote-parity
       boundary scan (IndexByte hopping, embedded newlines in quoted fields
       handled correctly), one goroutine + own builders per chunk

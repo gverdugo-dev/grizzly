@@ -114,16 +114,21 @@ One table end-to-end: load real data, inspect it, query and transform it.
   (per-dtype loading knowledge in one place), custom log handler removed
   (stdlib `log/slog` only).
 
-### v0.2.0 — fast (in progress)
+### v0.2.0 — fast (done — tagged 2026-06-11)
 
-Performance, guided by profiling, not guessing. Principles and planned
-improvements per area (load, processing, write) are recorded in
-[Annex: v0.2.0 performance principles](v0.2.0-principles.md); the telemetry
-that seeded them lives in
-[Annex: Lessons from the first benchmark](first-benchmark-lessons.md).
-Headlines: pprof the loaders, parallelize CSV parsing by chunks,
-benchmark processing and writing before touching them, re-benchmark
-against pandas/polars.
+Performance, guided by profiling, not guessing. Principles in
+[Annex: v0.2.0 performance principles](v0.2.0-principles.md); the journey in
+[Annex: Parallel CSV parsing](parallel-csv-chunks.md) and
+[Annex: Parsing JSON by hand](json-byte-parser.md).
+
+- Done: benchmark harness + benchstat baseline, parallel CSV by chunks
+  (file load 0.54s → 0.15s on the external 1M-row benchmark), byte-level
+  JSON parser + parallel chunks (3.46s → 0.37s — ahead of polars' 0.75s),
+  byte-level writers (~395k allocs → 13, same bytes out), pairwise
+  summation in `Sum`/`Avg` (error O(ε·log n), checksum now matches
+  pandas/polars, and 21% faster), fuzz tests with stdlib oracles.
+- The one external gap left on purpose: polars' CSV (0.032s) needs SIMD
+  parsing and Arrow-native memory — out of scope for grizzly.
 
 ### v0.3.0 — relational
 
