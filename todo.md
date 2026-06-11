@@ -1,7 +1,7 @@
 # todo
 
 Working checklist of the project. The living design document is
-[docs/README.md](docs/README.md) (the roadmap section defines the phases);
+[dev-notes/README.md](dev-notes/README.md) (the roadmap section defines the phases);
 this is just the task view of it.
 
 ## Done
@@ -25,7 +25,7 @@ this is just the task view of it.
 - [x] Module path rename to `github.com/gverdugo-dev/grizzly`
 - [x] **Nulls: design decided** — real `[]uint64` bitmap (`nil` = no nulls), comma-ok
       `Value(i) (T, bool)` API, always-nullable columns, SQL skip-null semantics.
-      See [docs/nulls-in-go.md](docs/nulls-in-go.md)
+      See [dev-notes/nulls-in-go.md](dev-notes/nulls-in-go.md)
 - [x] **Nulls: implement** — bitmap + comma-ok `Value` on columns; `WithNulls`
       constructors ([]bool mask at the boundary); JSON `null` and empty CSV
       float cells → bit 0 (CSV `""` in string columns stays a value, unlike
@@ -46,11 +46,11 @@ this is just the task view of it.
       checks; loads from CSV (`ParseBool`, empty = null), JSON (literal
       null) and structs (`reflect.Bool`). `FromStructs` moved to the
       finish-closure pattern along the way. See
-      [docs/bitmaps-and-words.md](docs/bitmaps-and-words.md)
+      [dev-notes/bitmaps-and-words.md](dev-notes/bitmaps-and-words.md)
 - [x] `Filter`: design decided — columnar comparators (`Eq`/`Lt`/`Gt`...) →
       combinable masks (`And`/`Or`/`Not`, word-level, Kleene null logic) →
       `Where` materializes. See
-      [docs/filter-design-space.md](docs/filter-design-space.md)
+      [dev-notes/filter-design-space.md](dev-notes/filter-design-space.md)
 - [x] `Filter`: implement — `Mask` (packed bits + validity), comparators
       `Eq`/`Ne`/`Lt`/`Le`/`Gt`/`Ge` (generic `cmp.Ordered` core; bool gets
       Eq/Ne from its packed words), word-level Kleene `And`/`Or`/`Not`,
@@ -60,7 +60,7 @@ this is just the task view of it.
       and missing names error via NewDataframe revalidation
 - [x] `GroupBy`: design decided — hash factorize (typed maps → `groupIDs []int`),
       eager `GroupBy(...).Agg(specs...)`, null keys = one group, first-appearance
-      order. See [docs/groupby-design-space.md](docs/groupby-design-space.md)
+      order. See [dev-notes/groupby-design-space.md](dev-notes/groupby-design-space.md)
 - [x] `GroupBy`: implement — generic `factorizeSlice[T comparable]` (+ map-free
       bool variant), `GroupedDataframe` with deferred error (sql.Row.Scan
       pattern, keeps the `GroupBy().Agg()` chain compiling), package-level agg
@@ -97,7 +97,7 @@ this is just the task view of it.
 
 ## v0.2.0 — fast
 
-Principles and rationale in [docs/v0.2.0-principles.md](docs/v0.2.0-principles.md):
+Principles and rationale in [dev-notes/v0.2.0-principles.md](dev-notes/v0.2.0-principles.md):
 measure first, fast sequential before parallel, parallelism at the boundaries.
 
 - [x] In-repo benchmarks (`go test -bench` + benchstat baseline): loaders,
@@ -184,10 +184,18 @@ measure first, fast sequential before parallel, parallelism at the boundaries.
 
 ## v0.3.0 — relational
 
-- [ ] `Join`
+- [ ] `Join`: design discussion — the design space (six axes, leading candidates,
+      decisions open) is mapped in [dev-notes/join-design-space.md](dev-notes/join-design-space.md)
+- [ ] `Join`: implement
 
 ## Unscheduled
 
+- [ ] Charts/plot — long-term vision (2026-06-11): grizzly grows a plotting layer
+      ("polars + matplotlib in one library"). Constraints already decided: separate
+      subpackage (`grizzly/plot`, gonum/plot-style) so the root API stays small, and
+      dependency-free rendering (emit SVG/HTML directly — the byte-level writer
+      muscle from v0.2.0). Does not constrain the Join design; charts consume
+      columns, which already exist
 - [ ] Decide copy-vs-share semantics of constructor slices (`NewFloat64Column` stores
       the caller's slice without copying — documented but unresolved)
 - [ ] Nulls in `FromStructs` — a struct's `float64` field always has a value;

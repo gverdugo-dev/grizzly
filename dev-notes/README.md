@@ -3,6 +3,10 @@
 The single living document of the library. Design decisions, open questions and
 learning-note annexes live (or are linked) here. Updated as the project evolves.
 
+> These are the **dev notes**: the engineering journey, written for learning.
+> The official user-facing documentation lives in [docs/](../docs/README.md),
+> which distills the design decisions recorded here.
+
 ## What grizzly is
 
 A dataframe library written in Go from scratch, as a learning project: the goal is to
@@ -93,12 +97,19 @@ the opposite of WHERE); output rows come in first-appearance order
 
 ## Open questions
 
-- None right now.
+- **Join design** — the six axes (algorithm, join types in scope, duplicate
+  keys, null keys, name collisions, API shape) are mapped with leading
+  candidates in [Annex: Join — the design space](join-design-space.md);
+  decisions pending the design discussion.
 
 ## Roadmap (versioned phases)
 
-Versions follow semver with git tags. `v0.x` means the API can still change
-freely between minors. [todo.md](../todo.md) is the task-level view of this.
+Versions follow semver with git tags: patch = fixes only, minor = new API
+(one milestone per minor), 1.0 deferred until the core API has settled. `v0.x`
+means the API can still change freely between minors. The full rationale and
+the strategies considered are in
+[Annex: Semver and Go modules](semver-and-go-modules.md).
+[todo.md](../todo.md) is the task-level view of this.
 
 ### v0.1.0 — load, look, ask (done — tagged 2026-06-10)
 
@@ -133,6 +144,8 @@ Performance, guided by profiling, not guessing. Principles in
 ### v0.3.0 — relational
 
 `Join` across dataframes, and whatever GroupBy's design forces us to revisit.
+Design space mapped in [Annex: Join — the design space](join-design-space.md);
+decisions open (see Open questions).
 
 ## Annexes (learning notes)
 
@@ -191,6 +204,21 @@ Performance, guided by profiling, not guessing. Principles in
   code), chunk boundaries by bracket depth, pipelined worker dispatch, and the
   module-proxy stale-`@main` trap. Underpins the byte-level `FromJSON`
   implementation.
+- [Join: the design space](join-design-space.md) — the six axes of the Join
+  design: hash vs sort-merge (and how `factorizeSlice`/`gatherRows` already
+  cover most of a hash join), join-type scope (inner + left first), SQL
+  duplicate-key semantics, why GroupBy's null==null rule must NOT transfer to
+  joins (partitioning vs comparison — with polars' 0.20 default flip as the
+  cautionary tale), key coalescing and `_right` suffixes, and the Go API shape
+  (per-type methods vs a JoinType enum). Underpins the (open) Join design
+  decision.
+- [Semver and Go modules](semver-and-go-modules.md) — what each version number
+  measures (API surface, not effort), how Go's toolchain acts on the numbers
+  (`go get -u=patch`, MVS, pseudo-versions, the `/v2` import-path rule), and the
+  four pre-1.0 strategies with pros and cons (strict semver vs Cargo-style
+  shifted-down vs early 1.0 vs perpetual 0.x, with polars' history as the worked
+  example). Underpins the roadmap's versioning policy and the Join = v0.3.0
+  decision.
 - [Pairwise summation](pairwise-summation.md) — float64 addition is not
   associative: why the sequential loop's error grows O(ε·n) and the halving
   tree's O(ε·log n), NumPy's 128-element leaves, the 200-bit math/big oracle

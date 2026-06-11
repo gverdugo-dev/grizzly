@@ -44,12 +44,19 @@ Planned construction paths (the current focus):
 
 ```
 grizzly/
-├── dataframe.go        # Core Dataframe type (package grizzly, library root)
+├── *.go                # The library: one root package (columns, loaders, ops)
 ├── cmd/playground/     # Scratch binary to try the library out manually
-└── internal/logging/   # Custom slog-based logger
+├── docs/               # OFFICIAL user-facing documentation (guide + design/)
+├── dev-notes/          # Living doc (README.md: decisions, roadmap) + learning notes
+├── reports/            # Benchmark baselines and audit reports
+└── testdata/           # Fuzz corpus and test fixtures
 ```
 
-The library is the root package (`module grizzly`). Executables live under `cmd/`.
+The library is the root package (module `github.com/gverdugo-dev/grizzly`).
+Executables live under `cmd/`. Learning notes are created via the
+`learning-note` skill and live in `dev-notes/`; `docs/` is the official
+documentation and must stay consistent with the API (its snippets mirror
+`example_test.go`).
 
 ## Commands
 

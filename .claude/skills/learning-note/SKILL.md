@@ -1,16 +1,16 @@
 ---
 name: learning-note
-description: "Crear una nota de aprendizaje (learning note) en docs/ y registrarla como anexo en el documento vivo docs/README.md. Usar cuando Gonzalo pida guardar/documentar una explicación (memoria, tipos, concurrencia, GC, etc.) como documento, mencione 'nota', 'anexo', 'documento de esta explicación' o 'añádelo al readme'."
+description: "Crear una nota de aprendizaje (learning note) en dev-notes/ y registrarla como anexo en el documento vivo dev-notes/README.md. Usar cuando Gonzalo pida guardar/documentar una explicación (memoria, tipos, concurrencia, GC, etc.) como documento, mencione 'nota', 'anexo', 'documento de esta explicación' o 'añádelo al readme'."
 ---
 
 # Learning note
 
 Convert an explanation given in conversation into a permanent learning note inside
-`docs/`, and register it in the living document `docs/README.md`.
+`dev-notes/`, and register it in the living document `dev-notes/README.md`.
 
 ## Steps
 
-1. **Write the note** at `docs/<kebab-case-topic>.md`, in English, with this shape:
+1. **Write the note** at `dev-notes/<kebab-case-topic>.md`, in English, with this shape:
    - Title + one-line context: why this matters for grizzly (which design decision it
      supports).
    - The detailed explanation, restructured for reading (not a chat transcript).
@@ -19,7 +19,7 @@ Convert an explanation given in conversation into a permanent learning note insi
      before citing it** — never include unverified links. Add one sentence per link
      explaining what it covers and why it's a good next step.
 
-2. **Register it in `docs/README.md`**:
+2. **Register it in `dev-notes/README.md`**:
    - Add a bullet under **Annexes (learning notes)**: `[Title](file.md) — one-line
      summary` mentioning which decision it underpins.
    - If the explanation resolved an open question or produced a decision, move/update
