@@ -1,0 +1,86 @@
+goos: linux
+goarch: amd64
+pkg: github.com/gverdugo-dev/grizzly
+cpu: 12th Gen Intel(R) Core(TM) i5-12400F
+BenchmarkFromCSVReader-12     	      58	  19927498 ns/op	 125.24 MB/s	22128984 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      61	  18689957 ns/op	 133.53 MB/s	22128705 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      61	  19234899 ns/op	 129.75 MB/s	22128709 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      55	  18974312 ns/op	 131.53 MB/s	22128706 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      61	  18966876 ns/op	 131.58 MB/s	22128707 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      56	  19118049 ns/op	 130.54 MB/s	22128710 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      54	  18764637 ns/op	 133.00 MB/s	22128706 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      60	  18943444 ns/op	 131.74 MB/s	22128705 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      60	  18717639 ns/op	 133.33 MB/s	22128709 B/op	  100231 allocs/op
+BenchmarkFromCSVReader-12     	      57	  18974263 ns/op	 131.53 MB/s	22128707 B/op	  100231 allocs/op
+BenchmarkFromJSONReader-12    	       5	 203571279 ns/op	  28.08 MB/s	106930678 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       5	 204975899 ns/op	  27.88 MB/s	106930652 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       5	 214339979 ns/op	  26.67 MB/s	106930688 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       5	 201162619 ns/op	  28.41 MB/s	106930684 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       5	 203356931 ns/op	  28.11 MB/s	106930659 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       5	 205135841 ns/op	  27.86 MB/s	106930668 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       5	 205581526 ns/op	  27.80 MB/s	106930675 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       5	 201564507 ns/op	  28.36 MB/s	106930659 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       6	 198566449 ns/op	  28.78 MB/s	106930669 B/op	 4900222 allocs/op
+BenchmarkFromJSONReader-12    	       5	 200929683 ns/op	  28.45 MB/s	106930656 B/op	 4900222 allocs/op
+BenchmarkSum-12               	   12824	     92846 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   12990	     93120 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   12652	     94534 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   12800	     94057 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   12993	     92766 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   13346	     89713 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   13408	     89457 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   13399	     89651 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   13118	     92492 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSum-12               	   13366	     91308 ns/op	       0 B/op	       0 allocs/op
+BenchmarkFilterWhere-12       	     954	   1144898 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1041	   1136351 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1047	   1123196 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1053	   1152206 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1045	   1136462 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1039	   1133656 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1050	   1126782 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1008	   1130596 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1069	   1163743 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkFilterWhere-12       	    1062	   1121252 ns/op	 1704544 B/op	      18 allocs/op
+BenchmarkGroupByAgg-12        	    1070	   1112379 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	    1053	   1123796 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	    1082	   1121605 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	    1058	   1108891 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	    1039	   1113839 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	    1071	   1108919 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	    1023	   1152336 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	     970	   1123363 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	    1032	   1120707 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkGroupByAgg-12        	    1076	   1108328 ns/op	  804256 B/op	      19 allocs/op
+BenchmarkSort-12              	      38	  31302971 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      37	  31476215 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      37	  31496292 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      38	  31487123 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      37	  31265562 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      38	  32577898 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      38	  31909532 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      37	  31559014 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      37	  31435619 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkSort-12              	      38	  31286391 ns/op	 4574048 B/op	      17 allocs/op
+BenchmarkToCSVWriter-12       	      75	  15513543 ns/op	 160.87 MB/s	 1091664 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      76	  15551113 ns/op	 160.48 MB/s	 1091665 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      76	  15514341 ns/op	 160.86 MB/s	 1091665 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      74	  16074878 ns/op	 155.25 MB/s	 1091665 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      73	  15506426 ns/op	 160.94 MB/s	 1091665 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      75	  15512334 ns/op	 160.88 MB/s	 1091665 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      76	  15530385 ns/op	 160.69 MB/s	 1091664 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      76	  15472404 ns/op	 161.30 MB/s	 1091664 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      76	  15535082 ns/op	 160.65 MB/s	 1091665 B/op	  194909 allocs/op
+BenchmarkToCSVWriter-12       	      73	  15522704 ns/op	 160.77 MB/s	 1091665 B/op	  194909 allocs/op
+BenchmarkToJSONWriter-12      	      57	  20496472 ns/op	 278.86 MB/s	 3462719 B/op	  200011 allocs/op
+BenchmarkToJSONWriter-12      	      57	  20501825 ns/op	 278.79 MB/s	 3462715 B/op	  200011 allocs/op
+BenchmarkToJSONWriter-12      	      57	  21234065 ns/op	 269.17 MB/s	 3462723 B/op	  200012 allocs/op
+BenchmarkToJSONWriter-12      	      58	  20451018 ns/op	 279.48 MB/s	 3462719 B/op	  200012 allocs/op
+BenchmarkToJSONWriter-12      	      58	  20486875 ns/op	 278.99 MB/s	 3462722 B/op	  200012 allocs/op
+BenchmarkToJSONWriter-12      	      57	  20429615 ns/op	 279.77 MB/s	 3462719 B/op	  200011 allocs/op
+BenchmarkToJSONWriter-12      	      58	  20516878 ns/op	 278.58 MB/s	 3462716 B/op	  200012 allocs/op
+BenchmarkToJSONWriter-12      	      58	  20418603 ns/op	 279.92 MB/s	 3462712 B/op	  200011 allocs/op
+BenchmarkToJSONWriter-12      	      58	  20467478 ns/op	 279.25 MB/s	 3462719 B/op	  200012 allocs/op
+BenchmarkToJSONWriter-12      	      52	  20524913 ns/op	 278.47 MB/s	 3462709 B/op	  200011 allocs/op
+PASS
+ok  	github.com/gverdugo-dev/grizzly	92.809s
