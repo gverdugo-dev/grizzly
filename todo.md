@@ -181,6 +181,14 @@ measure first, fast sequential before parallel, parallelism at the boundaries.
       @main` resolves through proxy.golang.org's cache — the first re-run
       silently measured yesterday's commit (`GOPROXY=direct` + explicit
       commit hash fixes it; always check the pseudo-version in go.mod)
+- [x] Cross-engine benchmark, all three engines fresh (2026-06-11): full
+      pipeline (read→sum→avg→sort→groupby→write), CSV+JSON, 1 → 10M rows,
+      verification values match across engines. Closes the "re-run before
+      publishing" caveat — comparison now published in the README. Raw
+      tables + reading in `reports/cross-engine-bench-2026-06-11.txt`.
+      Headline: grizzly is the best JSON loader on the table at scale
+      (10M: 4.15s vs polars 46.7s). New finding: `Sort` is the clearest
+      ceiling (loses to both engines from ~100k rows; tracked below)
 
 ## v0.3.0 — relational
 
@@ -190,6 +198,11 @@ measure first, fast sequential before parallel, parallelism at the boundaries.
 
 ## Unscheduled
 
+- [ ] `Sort` at scale — the one kernel both pandas and polars beat from ~100k
+      rows (10M: grizzly 7.0s vs pandas 2.24s, polars 0.70s; cross-engine
+      bench 2026-06-11). Single-threaded permutation sort with comparison
+      indirection; candidates to explore: parallel merge of sorted chunks,
+      radix sort for float64 keys, sorting keys instead of row indices
 - [ ] Charts/plot — long-term vision (2026-06-11): grizzly grows a plotting layer
       ("polars + matplotlib in one library"). Constraints already decided: separate
       subpackage (`grizzly/plot`, gonum/plot-style) so the root API stays small, and

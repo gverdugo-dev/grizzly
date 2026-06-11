@@ -163,9 +163,37 @@ dataset (commodity laptop):
 | JSON file load | 3.46s | **0.37s** |
 | CSV/JSON write (100k rows) | ~395k allocs | **13 allocs** |
 
-Benchmarks live in [`bench_test.go`](bench_test.go); methodology and
-comparisons against other engines are tracked in the
-[dev notes](dev-notes/README.md) and re-validated before being cited.
+### vs pandas and polars
+
+Full pipeline — read → sum → avg → sort → groupby → write — on the same
+machine and data, all three engines run fresh (2026-06-11), results verified
+to match across engines. Totals at 1M rows:
+
+| Total, 1M rows | CSV | JSON |
+|----------------|----:|-----:|
+| grizzly | 1.25 s | 1.54 s |
+| pandas | 6.03 s | 3.41 s |
+| polars | **0.24 s** | **1.28 s** |
+
+The honest reading, across the full 1 → 10M row sweep
+([raw tables](reports/cross-engine-bench-2026-06-11.txt)):
+
+- **JSON loading at scale is grizzly's headline.** At 10M rows grizzly reads
+  JSON in 4.15 s — 11× faster than polars (46.7 s) and 56× faster than
+  pandas (234 s). Best JSON loader on the table at every size from 10k up.
+- **Microsecond floor.** From 1 to 1k rows, grizzly's whole pipeline runs in
+  µs while both Python engines pay milliseconds of fixed per-call overhead —
+  compiled Go has no interpreter bridge to cross.
+- **CSV reading at scale belongs to polars** (SIMD parsing + Arrow memory):
+  0.32 s vs grizzly's 4.4 s at 10M rows. Known, and documented as out of
+  scope for a dependency-free library.
+- **Sort is grizzly's current ceiling**: single-threaded permutation sort
+  loses to both engines from ~100k rows. It is the next obvious performance
+  target.
+
+In-repo microbenchmarks live in [`bench_test.go`](bench_test.go);
+methodology and the measurement-first workflow are documented in the
+[dev notes](dev-notes/README.md).
 
 ## Status and versioning
 

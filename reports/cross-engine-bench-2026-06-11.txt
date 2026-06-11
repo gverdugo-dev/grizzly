@@ -1,0 +1,133 @@
+Cross-engine benchmark — grizzly vs pandas vs polars
+Date: 2026-06-11 · same machine, same data, all three engines run fresh
+Pipeline per size: read → sum → avg → sort → groupby → write
+Verification values match across engines.
+grizzly @ v0.2.1 · harness: ~/Projects/grizzly-test
+
+=== csv · 1 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly         11 µs        0 µs        0 µs        1 µs        1 µs       22 µs       36 µs
+pandas         438 µs       77 µs       39 µs       89 µs      1.9 ms      369 µs      2.9 ms
+polars         132 µs        8 µs        3 µs       72 µs      190 µs      579 µs      983 µs
+
+=== csv · 10 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly         20 µs        0 µs        0 µs        2 µs        2 µs       45 µs       68 µs
+pandas         477 µs       93 µs       55 µs      265 µs      2.4 ms      477 µs      3.7 ms
+polars         134 µs        9 µs        2 µs       95 µs      196 µs      652 µs      1.1 ms
+
+=== csv · 100 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly         70 µs        0 µs        0 µs       11 µs        8 µs      176 µs      265 µs
+pandas         600 µs       97 µs       50 µs      217 µs      2.1 ms      1.0 ms      4.1 ms
+polars         302 µs        8 µs        2 µs      116 µs      281 µs      937 µs      1.6 ms
+
+=== csv · 1,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly        848 µs        1 µs        1 µs      245 µs       36 µs      1.6 ms      2.8 ms
+pandas         1.7 ms      138 µs       53 µs      301 µs      2.3 ms      6.4 ms     10.9 ms
+polars         385 µs       12 µs        3 µs      222 µs      938 µs      1.5 ms      3.1 ms
+
+=== csv · 10,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly        2.8 ms        6 µs        7 µs      2.4 ms      187 µs      9.1 ms     14.5 ms
+pandas         7.9 ms      165 µs       70 µs      924 µs      2.7 ms     54.8 ms     66.6 ms
+polars         1.1 ms       25 µs       10 µs      585 µs      436 µs      5.3 ms      7.4 ms
+
+=== csv · 100,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly       19.0 ms       61 µs       68 µs     31.2 ms      1.7 ms     64.9 ms    116.9 ms
+pandas        67.9 ms      305 µs      214 µs      9.5 ms      7.1 ms    514.8 ms    599.9 ms
+polars         4.4 ms       82 µs       53 µs      4.4 ms      2.0 ms     19.5 ms     30.5 ms
+
+=== csv · 1,000,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly      162.8 ms      658 µs      668 µs    399.3 ms     15.4 ms    666.5 ms      1.25 s
+pandas       618.0 ms      1.6 ms      1.5 ms    133.5 ms     51.6 ms      5.22 s      6.03 s
+polars        31.8 ms      592 µs      509 µs     49.3 ms      7.4 ms    153.0 ms    242.6 ms
+
+=== csv · 10,000,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly        4.42 s      7.6 ms      7.7 ms      7.00 s    199.0 ms      6.59 s     18.23 s
+pandas         6.28 s     10.1 ms     11.5 ms      2.24 s    500.1 ms     53.31 s     62.35 s
+polars       320.0 ms      4.8 ms      3.9 ms    702.3 ms     56.7 ms      1.48 s      2.57 s
+
+=== json · 1 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly          7 µs        0 µs        0 µs        1 µs        0 µs       13 µs       21 µs
+pandas         1.8 ms       81 µs       40 µs       83 µs      1.9 ms      309 µs      4.3 ms
+polars          51 µs        6 µs        2 µs       48 µs      550 µs       57 µs      715 µs
+
+=== json · 10 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly         28 µs        0 µs        0 µs        2 µs        2 µs       23 µs       56 µs
+pandas         1.8 ms       83 µs       42 µs      144 µs      2.0 ms      315 µs      4.3 ms
+polars          89 µs        8 µs        2 µs       88 µs      198 µs       62 µs      448 µs
+
+=== json · 100 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly        196 µs        0 µs        0 µs       19 µs       11 µs      251 µs      478 µs
+pandas         2.0 ms       93 µs       40 µs      183 µs      2.1 ms      587 µs      5.1 ms
+polars         324 µs       10 µs        4 µs      125 µs      241 µs      401 µs      1.1 ms
+
+=== json · 1,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly        1.0 ms        1 µs        1 µs      163 µs       20 µs      1.7 ms      2.9 ms
+pandas         3.5 ms      110 µs       41 µs      250 µs      2.3 ms      2.2 ms      8.4 ms
+polars         870 µs       11 µs        3 µs      216 µs      1.4 ms      1.4 ms      3.9 ms
+
+=== json · 10,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly        5.0 ms        6 µs        6 µs      2.3 ms      154 µs     10.0 ms     17.4 ms
+pandas        18.3 ms      135 µs       52 µs      1.1 ms      2.9 ms     13.3 ms     35.8 ms
+polars         7.9 ms       23 µs        7 µs      1.2 ms      357 µs      7.1 ms     16.6 ms
+
+=== json · 100,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly       40.9 ms       59 µs       64 µs     30.6 ms      1.3 ms     71.2 ms    144.2 ms
+pandas       181.9 ms      306 µs      199 µs     13.9 ms     13.7 ms    123.1 ms    333.1 ms
+polars        77.3 ms       69 µs       54 µs      3.4 ms      1.3 ms     45.8 ms    127.9 ms
+
+=== json · 1,000,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly      367.9 ms      662 µs      634 µs    406.6 ms     13.7 ms    748.1 ms      1.54 s
+pandas         1.81 s      1.3 ms      1.2 ms    184.6 ms    107.4 ms      1.31 s      3.41 s
+polars       807.3 ms      426 µs      460 µs     41.3 ms      4.9 ms    421.0 ms      1.28 s
+
+=== json · 10,000,000 rows ===
+engine           read         sum         avg        sort     groupby       write       total
+---------------------------------------------------------------------------------------------
+grizzly        4.15 s      6.5 ms      6.2 ms      5.83 s    129.7 ms      6.96 s     17.07 s
+pandas       234.30 s     67.9 ms     32.7 ms      8.99 s      1.23 s     22.44 s    267.06 s
+polars        46.70 s      8.4 ms      5.2 ms    966.9 ms     42.0 ms      3.93 s     51.65 s
+
+Reading (2026-06-11):
+- JSON read at scale is grizzly's strongest result: 10M rows in 4.15s vs
+  polars 46.7s (11x) and pandas 234s (56x). Best JSON loader on the table
+  at every size >= 10k.
+- Tiny inputs (1-1k rows): grizzly totals are µs-scale; both Python engines
+  pay ms of fixed per-operation overhead.
+- CSV read at scale belongs to polars (SIMD + Arrow): 320ms vs 4.42s at 10M.
+  Known and documented as out of scope.
+- Sort is grizzly's clearest ceiling: single-threaded permutation sort loses
+  to BOTH engines from ~100k rows (10M: 7.0s vs pandas 2.24s, polars 0.70s).
+  Candidate for the next performance milestone.
+- GroupBy: beats pandas at every size; competitive with polars to ~100k,
+  behind at 1M+ (polars parallelizes).
+- Writers: beat pandas everywhere (CSV 1M: 0.67s vs 5.22s); polars faster
+  from ~100k.
