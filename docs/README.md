@@ -178,3 +178,11 @@ against pandas/polars.
   RFC 4180), the `-race` detector, and two war stories — the correct-but-lopsided
   splitter only the profiler caught, and Amdahl's fee paid with pre-sized
   builders (2x → 3.4x). Underpins the parallel `FromCSV` implementation.
+- [Parsing JSON by hand](json-byte-parser.md) — why encoding/json had to leave
+  the hot path (discarded internal errors, boxing, no public escape hatch), the
+  byte-level parser (allocation-free keys, strict number grammar, escape
+  analysis keeping `string(raw)` on the stack), fuzzing with the stdlib as
+  oracle (the invalid-UTF-8 catch, and the missing-`]` bug it found in the OLD
+  code), chunk boundaries by bracket depth, pipelined worker dispatch, and the
+  module-proxy stale-`@main` trap. Underpins the byte-level `FromJSON`
+  implementation.
