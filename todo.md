@@ -118,9 +118,21 @@ measure first, fast sequential before parallel, parallelism at the boundaries.
       profile says where it hurts, only the after-benchmark says the cure
       works. Sequential JSON is at the stdlib's ceiling until json/v2
       graduates (still GOEXPERIMENT in Go 1.26)
-- [ ] Optimize sequential JSON load — options: hand-rolled flat-object
-      scanner over per-row `json.RawMessage` (1 Decode/row instead of 4),
-      or wait for json/v2; design discussion pending
+- [x] Optimize sequential JSON load — byte-level parser
+      (`from_json_bytes.go`, "B1"): keys compared as raw bytes, strict
+      JSON-number grammar + `ParseFloat` (the `string(raw)` conversion
+      stays on the stack — escape analysis), string fast path
+      (no-backslash + valid UTF-8 → one copy) with full escape/surrogate/
+      invalid-UTF-8 handling mirroring encoding/json. `FromJSON` uses it;
+      `FromJSONReader` keeps the stdlib decoder (and got a missing-`]`
+      strictness fix the new tests caught). Verified by a fuzz test with
+      the stdlib as oracle (7.1M execs clean; first catch: invalid UTF-8
+      must coerce to U+FFFD — saved in `testdata/fuzz/`).
+      **206ms → 24.7ms (8.4x), 4.9M → 100k allocs (49x)** on the 100k-row
+      benchmark; 26 → 221 MB/s single-threaded
+- [ ] Parallelize JSON load by chunks ("B2"): boundaries between top-level
+      array objects (bracket depth outside strings), reusing the CSV
+      fan-out/merge machinery
 - [ ] Writers: benchmark, then `strconv.Append*` into reused buffers instead
       of `fmt` where the profile agrees
 - [ ] Pairwise summation in `Sum`/`Avg` (accuracy win; explains the benchmark

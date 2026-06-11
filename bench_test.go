@@ -188,6 +188,24 @@ func BenchmarkFromCSVReader(b *testing.B) {
 	}
 }
 
+// BenchmarkFromJSON measures the file-path loader — the byte-level
+// parser (from_json_bytes.go), vs the stdlib token decoder kept in
+// FromJSONReader below.
+func BenchmarkFromJSON(b *testing.B) {
+	data, schema := benchJSON(), benchSchema
+	path := filepath.Join(b.TempDir(), "bench.json")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(len(data)))
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := grizzly.FromJSON(path, schema); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkFromJSONReader(b *testing.B) {
 	data, schema := benchJSON(), benchSchema
 	b.SetBytes(int64(len(data)))

@@ -35,8 +35,14 @@ type columnBuilder interface {
 	// number is for error context only.
 	appendCSV(cell string, line int) error
 	// appendJSON decodes the value at the decoder's cursor and appends
-	// it. The 0-based row number is for error context only.
+	// it. The 0-based row number is for error context only. Used by the
+	// streaming stdlib path (FromJSONReader).
 	appendJSON(dec *json.Decoder, row int) error
+	// appendJSONValue appends one value scanned by the byte-level parser
+	// (from_json_bytes.go): kind says what the scanner saw; raw holds the
+	// token's bytes — the number text, or the string contents between the
+	// quotes with escapes still encoded. Used by the fast path (FromJSON).
+	appendJSONValue(kind jsonKind, raw []byte, row int) error
 	// finish wraps the accumulated values into a Column.
 	finish() (Column, error)
 }
@@ -132,6 +138,27 @@ func (b *float64Builder) appendJSON(dec *json.Decoder, row int) error {
 	return nil
 }
 
+func (b *float64Builder) appendJSONValue(kind jsonKind, raw []byte, row int) error {
+	switch kind {
+	case jsonNull:
+		b.values = append(b.values, 0)
+		b.valid = append(b.valid, false)
+	case jsonNumber:
+		// raw was already validated against JSON's number grammar; the
+		// string conversion is the price of ParseFloat's signature.
+		v, err := strconv.ParseFloat(string(raw), 64)
+		if err != nil {
+			return fmt.Errorf("row %d, key %q: %w", row, b.name, err)
+		}
+		b.values = append(b.values, v)
+		b.valid = append(b.valid, true)
+	default:
+		return fmt.Errorf("row %d, key %q: cannot load %s into a Float64 column",
+			row, b.name, kind)
+	}
+	return nil
+}
+
 func (b *float64Builder) finish() (Column, error) {
 	return NewFloat64ColumnWithNulls(b.name, b.values, b.valid)
 }
@@ -172,6 +199,25 @@ func (b *stringBuilder) appendJSON(dec *json.Decoder, row int) error {
 	}
 	b.values = append(b.values, b.buf)
 	b.valid = append(b.valid, true)
+	return nil
+}
+
+func (b *stringBuilder) appendJSONValue(kind jsonKind, raw []byte, row int) error {
+	switch kind {
+	case jsonNull:
+		b.values = append(b.values, "")
+		b.valid = append(b.valid, false)
+	case jsonString:
+		s, err := unescapeJSON(raw)
+		if err != nil {
+			return fmt.Errorf("row %d, key %q: %w", row, b.name, err)
+		}
+		b.values = append(b.values, s)
+		b.valid = append(b.valid, true)
+	default:
+		return fmt.Errorf("row %d, key %q: cannot load %s into a String column",
+			row, b.name, kind)
+	}
 	return nil
 }
 
@@ -218,6 +264,24 @@ func (b *boolBuilder) appendJSON(dec *json.Decoder, row int) error {
 	}
 	b.values = append(b.values, b.buf)
 	b.valid = append(b.valid, true)
+	return nil
+}
+
+func (b *boolBuilder) appendJSONValue(kind jsonKind, _ []byte, row int) error {
+	switch kind {
+	case jsonNull:
+		b.values = append(b.values, false)
+		b.valid = append(b.valid, false)
+	case jsonTrue:
+		b.values = append(b.values, true)
+		b.valid = append(b.valid, true)
+	case jsonFalse:
+		b.values = append(b.values, false)
+		b.valid = append(b.valid, true)
+	default:
+		return fmt.Errorf("row %d, key %q: cannot load %s into a Bool column",
+			row, b.name, kind)
+	}
 	return nil
 }
 

@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("[{\"id\":0,\"note\": \"\x80\",\"price\":0,\"sold\":true}]")

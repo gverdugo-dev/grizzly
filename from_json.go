@@ -1,7 +1,6 @@
 package grizzly
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,16 +8,20 @@ import (
 )
 
 // FromJSON builds a Dataframe from a JSON file containing an array of
-// objects (one object = one row). It opens the file and delegates to
-// FromJSONReader; see that function for the format, schema and null rules.
+// objects (one object = one row). See FromJSONReader for the format,
+// schema and null rules — valid files load identically through both.
+//
+// Unlike FromJSONReader, it reads the whole file into memory and parses
+// the bytes directly (see from_json_bytes.go), skipping encoding/json's
+// per-value machinery. Use FromJSONReader when streaming matters more
+// than speed.
 func FromJSON(path string, schema Schema) (Dataframe, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return Dataframe{}, fmt.Errorf("FromJSON: %w", err)
 	}
-	defer f.Close()
 
-	df, err := FromJSONReader(bufio.NewReaderSize(f, readerBufSize), schema)
+	df, err := fromJSONBytes(data, schema)
 	if err != nil {
 		return Dataframe{}, fmt.Errorf("FromJSON %s: %w", path, err)
 	}
@@ -99,6 +102,12 @@ func FromJSONReader(r io.Reader, schema Schema) (Dataframe, error) {
 				row, filled, len(schema))
 		}
 		row++
+	}
+	// Consume the closing ']'. Without this check a truncated document
+	// (missing bracket) would load silently: More() just reports false at
+	// EOF — a laxity the byte-level parser's tests caught.
+	if err := expectDelim(dec, ']'); err != nil {
+		return Dataframe{}, fmt.Errorf("after row %d: %w", row, err)
 	}
 
 	cols, err := finishColumns(builders)
