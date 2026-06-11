@@ -172,3 +172,9 @@ against pandas/polars.
   intact, stdlib only, API stable. Plus the planned improvements per area and the
   new Go vocabulary (goroutines, WaitGroup, channels, pprof, benchstat). Underpins
   the v0.2.0 roadmap entry.
+- [Parallel CSV parsing](parallel-csv-chunks.md) — grizzly's first goroutines:
+  the split → fan-out → merge shape, `sync.WaitGroup.Go` and lock-free
+  index-addressed results, the quote-parity chunk splitter (IndexByte hopping,
+  RFC 4180), the `-race` detector, and two war stories — the correct-but-lopsided
+  splitter only the profiler caught, and Amdahl's fee paid with pre-sized
+  builders (2x → 3.4x). Underpins the parallel `FromCSV` implementation.
