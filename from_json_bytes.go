@@ -68,18 +68,14 @@ func (k jsonKind) String() string {
 	return "an unknown value"
 }
 
-// fromJSONBytes parses a whole JSON document (an array of flat objects)
-// held in memory. It is the engine behind FromJSON.
-func fromJSONBytes(data []byte, schema Schema) (Dataframe, error) {
-	builders := make([]columnBuilder, len(schema))
-	keys := make([][]byte, len(schema))
-	for j, field := range schema {
-		b, err := newColumnBuilder(field, 0)
-		if err != nil {
-			return Dataframe{}, err
-		}
-		builders[j] = b
-		keys[j] = []byte(field.Name)
+// fromJSONBytesSeq parses a whole JSON document (an array of flat
+// objects) held in memory, sequentially. It is also the reference the
+// parallel path (from_json_parallel.go) falls back to for canonical
+// error reporting.
+func fromJSONBytesSeq(data []byte, schema Schema) (Dataframe, error) {
+	builders, keys, err := jsonBuilders(schema, 0)
+	if err != nil {
+		return Dataframe{}, err
 	}
 
 	p := &jsonParser{data: data}
@@ -90,55 +86,8 @@ func fromJSONBytes(data []byte, schema Schema) (Dataframe, error) {
 	p.skipWS()
 	if !p.consume(']') {
 		for {
-			if err := p.expectByte('{'); err != nil {
-				return Dataframe{}, fmt.Errorf("row %d: %w", row, err)
-			}
-			filled := 0
-			p.skipWS()
-			if !p.consume('}') {
-				for {
-					p.skipWS()
-					if p.pos >= len(p.data) || p.data[p.pos] != '"' {
-						return Dataframe{}, fmt.Errorf("row %d: expected an object key", row)
-					}
-					key, err := p.scanString()
-					if err != nil {
-						return Dataframe{}, fmt.Errorf("row %d: %w", row, err)
-					}
-					if err := p.expectByte(':'); err != nil {
-						return Dataframe{}, fmt.Errorf("row %d, key %q: %w", row, key, err)
-					}
-					if j := matchKey(keys, key); j < 0 {
-						// Key not in the schema: skip its value structurally
-						// (it may be nested).
-						if err := p.skipValue(); err != nil {
-							return Dataframe{}, fmt.Errorf("row %d, key %q: %w", row, key, err)
-						}
-					} else {
-						kind, raw, err := p.scanValue()
-						if err != nil {
-							return Dataframe{}, fmt.Errorf("row %d, key %q: %w", row, key, err)
-						}
-						if err := builders[j].appendJSONValue(kind, raw, row); err != nil {
-							return Dataframe{}, err
-						}
-						filled++
-					}
-					p.skipWS()
-					if p.consume(',') {
-						continue
-					}
-					if p.consume('}') {
-						break
-					}
-					return Dataframe{}, fmt.Errorf("row %d: expected ',' or '}'", row)
-				}
-			}
-			// Catches missing keys (and duplicates, which also desync
-			// lengths — NewDataframe double-checks those at the end).
-			if filled != len(schema) {
-				return Dataframe{}, fmt.Errorf("row %d: filled %d of %d schema columns",
-					row, filled, len(schema))
+			if err := parseJSONObject(p, builders, keys, row); err != nil {
+				return Dataframe{}, err
 			}
 			row++
 			p.skipWS()
@@ -157,6 +106,81 @@ func fromJSONBytes(data []byte, schema Schema) (Dataframe, error) {
 		return Dataframe{}, err
 	}
 	return NewDataframe(cols...)
+}
+
+// jsonBuilders creates the per-column builders plus their key bytes (for
+// allocation-free matching) — the shared setup of the sequential and
+// parallel byte-level loaders.
+func jsonBuilders(schema Schema, capHint int) ([]columnBuilder, [][]byte, error) {
+	builders := make([]columnBuilder, len(schema))
+	keys := make([][]byte, len(schema))
+	for j, field := range schema {
+		b, err := newColumnBuilder(field, capHint)
+		if err != nil {
+			return nil, nil, err
+		}
+		builders[j] = b
+		keys[j] = []byte(field.Name)
+	}
+	return builders, keys, nil
+}
+
+// parseJSONObject parses one row object — from its '{' (whitespace
+// allowed before it) through its '}' — appending each schema column's
+// value to its builder. The row number is for error context only. Shared
+// by the sequential loader and the parallel chunk workers.
+func parseJSONObject(p *jsonParser, builders []columnBuilder, keys [][]byte, row int) error {
+	if err := p.expectByte('{'); err != nil {
+		return fmt.Errorf("row %d: %w", row, err)
+	}
+	filled := 0
+	p.skipWS()
+	if !p.consume('}') {
+		for {
+			p.skipWS()
+			if p.pos >= len(p.data) || p.data[p.pos] != '"' {
+				return fmt.Errorf("row %d: expected an object key", row)
+			}
+			key, err := p.scanString()
+			if err != nil {
+				return fmt.Errorf("row %d: %w", row, err)
+			}
+			if err := p.expectByte(':'); err != nil {
+				return fmt.Errorf("row %d, key %q: %w", row, key, err)
+			}
+			if j := matchKey(keys, key); j < 0 {
+				// Key not in the schema: skip its value structurally
+				// (it may be nested).
+				if err := p.skipValue(); err != nil {
+					return fmt.Errorf("row %d, key %q: %w", row, key, err)
+				}
+			} else {
+				kind, raw, err := p.scanValue()
+				if err != nil {
+					return fmt.Errorf("row %d, key %q: %w", row, key, err)
+				}
+				if err := builders[j].appendJSONValue(kind, raw, row); err != nil {
+					return err
+				}
+				filled++
+			}
+			p.skipWS()
+			if p.consume(',') {
+				continue
+			}
+			if p.consume('}') {
+				break
+			}
+			return fmt.Errorf("row %d: expected ',' or '}'", row)
+		}
+	}
+	// Catches missing keys (and duplicates, which also desync lengths —
+	// NewDataframe double-checks those at the end).
+	if filled != len(builders) {
+		return fmt.Errorf("row %d: filled %d of %d schema columns",
+			row, filled, len(builders))
+	}
+	return nil
 }
 
 // matchKey finds the schema column a raw key belongs to, comparing bytes
@@ -422,12 +446,19 @@ func (p *jsonParser) skipValue() error {
 // invalid-UTF-8 coercion was its first catch).
 func unescapeJSON(raw []byte) (string, error) {
 	if bytes.IndexByte(raw, '\\') < 0 {
+		// One pass does double duty: reject raw control characters and
+		// detect pure ASCII — which needs no utf8.Valid call at all
+		// (profiling showed Valid's per-call cost on short strings).
+		ascii := true
 		for _, c := range raw {
 			if c < 0x20 {
 				return "", fmt.Errorf("invalid control character in string")
 			}
+			if c >= utf8.RuneSelf {
+				ascii = false
+			}
 		}
-		if utf8.Valid(raw) {
+		if ascii || utf8.Valid(raw) {
 			return string(raw), nil
 		}
 		// Invalid UTF-8: fall through to the rebuilding path, which

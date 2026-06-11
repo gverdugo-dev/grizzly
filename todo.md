@@ -130,9 +130,17 @@ measure first, fast sequential before parallel, parallelism at the boundaries.
       must coerce to U+FFFD — saved in `testdata/fuzz/`).
       **206ms → 24.7ms (8.4x), 4.9M → 100k allocs (49x)** on the 100k-row
       benchmark; 26 → 221 MB/s single-threaded
-- [ ] Parallelize JSON load by chunks ("B2"): boundaries between top-level
-      array objects (bracket depth outside strings), reusing the CSV
-      fan-out/merge machinery
+- [x] Parallelize JSON load by chunks ("B2", `from_json_parallel.go`):
+      boundaries at top-level `{` (bracket depth outside strings; CSV's
+      quote-parity trick doesn't transfer — JSON escapes with `\"`, so the
+      splitter reuses `scanString`), **pipelined dispatch** (each worker
+      launches the moment its chunk is known, hiding the sequential scan —
+      profiling showed an up-front split gating all workers), canonical
+      errors via sequential re-parse on the error path, `mergeColumn`
+      reuse. Splitter lesson: bulk `bytes.Count` skipping lost to a tight
+      byte loop — JSON's between-string segments are tiny and per-call
+      overhead dominated. **24.7ms → 12.6ms (2x over B1; 16.3x total over
+      v0.1.0's 206ms)** on the 100k-row benchmark
 - [ ] Writers: benchmark, then `strconv.Append*` into reused buffers instead
       of `fmt` where the profile agrees
 - [ ] Pairwise summation in `Sum`/`Avg` (accuracy win; explains the benchmark
