@@ -191,3 +191,9 @@ Performance, guided by profiling, not guessing. Principles in
   code), chunk boundaries by bracket depth, pipelined worker dispatch, and the
   module-proxy stale-`@main` trap. Underpins the byte-level `FromJSON`
   implementation.
+- [Pairwise summation](pairwise-summation.md) — float64 addition is not
+  associative: why the sequential loop's error grows O(ε·n) and the halving
+  tree's O(ε·log n), NumPy's 128-element leaves, the 200-bit math/big oracle
+  test, the checksum now matching pandas/polars, and the bonus 21% speedup
+  (direct leaf loops vs the range-over-func iterator). Underpins `Sum`/`Avg`'s
+  pairwise implementation — the documented exception to principle 4.
